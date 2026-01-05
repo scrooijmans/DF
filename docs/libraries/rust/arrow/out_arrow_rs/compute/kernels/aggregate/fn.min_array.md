@@ -1,0 +1,14 @@
+# Function min_array Copy item path
+
+<a href="https://docs.rs/arrow-arith/56.2.0/x86_64-unknown-linux-gnu/src/arrow_arith/aggregate.rs.html#628-631" class="src">Source</a>
+
+``` rust
+pub fn min_array<T, A>(array: A) -> Option<<T as ArrowPrimitiveType>::Native>where
+    A: ArrayAccessor<Item = <T as ArrowPrimitiveType>::Native>,
+    T: ArrowNumericType,
+    <T as ArrowPrimitiveType>::Native: ArrowNativeType,
+```
+
+Expand description
+
+Returns the min of values in the array of `ArrowNumericType` type, or dictionary array with value of `ArrowNumericType` type.

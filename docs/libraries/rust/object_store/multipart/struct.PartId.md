@@ -1,0 +1,51 @@
+# Struct PartId Copy item path
+
+<a href="https://docs.rs/object_store/latest/src/object_store/multipart.rs.html#31-34" class="src">Source</a>
+
+``` rust
+pub struct PartId {
+    pub content_id: String,
+}
+```
+
+Expand description
+
+Represents a part of a file that has been successfully uploaded in a multipart upload process.
+
+## Fields<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#fields" class="anchor">§</a>
+
+<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#structfield.content_id" class="anchor field">§</a>`content_id: `<a href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" class="struct" title="struct alloc::string::String"><code>String</code></a>
+
+Id of this part
+
+## Trait Implementations<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#trait-implementations" class="anchor">§</a>
+
+<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#impl-Clone-for-PartId" class="anchor">§</a>
+
+### impl <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" class="trait" title="trait core::clone::Clone">Clone</a> for <a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html" class="struct" title="struct object_store::multipart::PartId">PartId</a>
+
+<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#method.clone" class="anchor">§</a>
+
+#### fn <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone" class="fn">clone</a>(&self) -\> <a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html" class="struct" title="struct object_store::multipart::PartId">PartId</a>
+
+Returns a duplicate of the value. [Read more](https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone)
+
+1.0.0 · <a href="https://doc.rust-lang.org/nightly/src/core/clone.rs.html#245-247" class="src">Source</a><a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#method.clone_from" class="anchor">§</a>
+
+#### fn <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from" class="fn">clone_from</a>(&mut self, source: &Self)
+
+Performs copy-assignment from `source`. [Read more](https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from)
+
+<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#impl-Debug-for-PartId" class="anchor">§</a>
+
+### impl <a href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" class="trait" title="trait core::fmt::Debug">Debug</a> for <a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html" class="struct" title="struct object_store::multipart::PartId">PartId</a>
+
+<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#method.fmt" class="anchor">§</a>
+
+#### fn <a href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt" class="fn">fmt</a>(&self, f: &mut <a href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" class="struct" title="struct core::fmt::Formatter">Formatter</a>\<'\_\>) -\> <a href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" class="type" title="type core::fmt::Result">Result</a>
+
+Formats the value using the given formatter. [Read more](https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt)
+
+## Auto Trait Implementations<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#synthetic-implementations" class="anchor">§</a>
+
+## Blanket Implementations<a href="https://docs.rs/object_store/latest/object_store/multipart/struct.PartId.html#blanket-implementations" class="anchor">§</a>

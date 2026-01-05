@@ -1,0 +1,52 @@
+Section,Mnemonic,Unit,Value,Description
+~Version,VERS,,1.20,CWLS log ASCII Standard -VERSION 1.20
+~Version,WRAP,,YES,Multiple lines per depth step
+~Well,PROV,,SASKATCHEWAN,PROVINCE
+~Well,SRVC,,ANY LOGGING COMPANY INC.,SERVICE COMPANY
+~Well,NULL,,-999.2500,Null value
+~Well,WELL,,ANY ET AL XX-XX-XX-XX,WELL
+~Well,FLD,,WILDCAT,FIELD
+~Well,SON,,142085,SERVICE ORDER
+~Well,STOP,M,909.500,
+~Well,STEP,M,-0.1250,
+~Well,UWI,,,UNIQUE WELL ID
+~Well,DATE,,13-DEC-86,LOG DATE
+~Well,STRT,M,910.000,
+~Well,LOC,,XX-XX-XX-XXW3M,LOCATION
+~Well,COMP,,ANY OIL COMPANY INC.,COMPANY
+~Curves,DEPT,M,,Depth
+~Curves,DT,US/M,,1 Sonic Travel Time
+~Curves,RHOB,K/M,,2 Density-Bulk Density
+~Curves,NPHI,V/V,,3 Porosity -Neutron
+~Curves,RX0,OHMM,,4 Resistivity -Rxo
+~Curves,RESS,OHMM,,5 Resistivity -Shallow
+~Curves,RESM,OHMM,,6 Resistivity -Medium
+~Curves,RESD,OHMM,,7 Resistivity -Deep
+~Curves,SP,MV,,8 Spon. Potential
+~Curves,GR,GAPI,,9 Gamma Ray
+~Curves,CALI,MM,,10 Caliper
+~Curves,DRHO,K/M3,,11 Delta-Rho
+~Curves,EATT,DBM,,12 EPT Attenuation
+~Curves,TPL,NS/M,,13 TP -EPT
+~Curves,PEF,,,14 PhotoElectric Factor
+~Curves,FFI,V/V,,15 Porosity -NML FFI
+~Curves,DCAL,MM,,16 Caliper-Differential
+~Curves,RHGF,K/M3,,17 Density-Formation
+~Curves,RHGA,K/M3,,18 Density-Apparent
+~Curves,SPBL,MV,,19 Baselined SP
+~Curves,GRC,GAPI,,20 Gamma Ray BHC
+~Curves,PHIA,V/V,,21 Porosity -Apparent
+~Curves,PHID,V/V,,22 Porosity -Density
+~Curves,PHIE,V/V,,23 Porosity -Effective
+~Curves,PHIN,V/V,,24 Porosity -Neut BHC
+~Curves,PHIC,V/V,,25 Porosity -Total HCC
+~Curves,R0,OHMM,,26 Ro
+~Curves,RWA,OHMM,,27 Rfa
+~Curves,SW,,,28 Sw -Effective
+~Curves,MSI,,,29 Sh Idx -Min
+~Curves,BVW,,,30 BVW
+~Curves,FGAS,,,31 Flag -Gas Index
+~Curves,PIDX,,,32 Prod Idx
+~Curves,FBH,,,33 Flag -Bad Hole
+~Curves,FHCC,,,34 Flag -HC Correction
+~Curves,LSWB,,,35 Flag -Limit SWB

@@ -1,0 +1,132 @@
+<img src="out_scichartv4/typedoc/enums/evaluename_media/d804b495cb9b84b9007a25b5d85f9ae674004cde.gif" style="display:none;" width="1" height="1" />
+
+Search
+
+- Preparing search index...
+- The search index is not available
+
+<a href="https://www.scichart.com/documentation/js/v4/typedoc/index.html" class="title">TypeDoc API Documentation</a> for SciChart <a href="https://www.scichart.com/javascript-chart-features" class="title" target="blank">JavaScript Charts</a>
+
+<a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#" class="tsd-widget options no-caption" data-toggle="options">Options</a>
+
+All
+
+- Public
+- Public/Protected
+- All
+
+Inherited
+
+- [Globals](https://www.scichart.com/documentation/js/v4/typedoc/index.html)
+- [EValueName](https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html)
+
+# Enumeration EValueName
+
+Go to [JavaScript Charting Documentation](https://www.scichart.com/documentation/js/v4/intro)
+
+Go to <a href="https://scichart.com/demo" target="_blank">JavaScript Chart Examples</a>
+
+Go to <a href="https://github.com/abtsoftware/scichart.js.examples" target="_blank">SciChart.js on Github</a>
+
+## Index
+
+### Enumeration members
+
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#boxplotlower" class="tsd-kind-icon">BoxPlotLower</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#boxplotmax" class="tsd-kind-icon">BoxPlotMax</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#boxplotmedian" class="tsd-kind-icon">BoxPlotMedian</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#boxplotminimum" class="tsd-kind-icon">BoxPlotMinimum</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#boxplotupper" class="tsd-kind-icon">BoxPlotUpper</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#close" class="tsd-kind-icon">Close</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#high" class="tsd-kind-icon">High</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#low" class="tsd-kind-icon">Low</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#open" class="tsd-kind-icon">Open</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#x1" class="tsd-kind-icon">X1</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#y" class="tsd-kind-icon">Y</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#y1" class="tsd-kind-icon">Y1</a>
+- <a href="https://www.scichart.com/documentation/js/v4/typedoc/enums/evaluename.html#z" class="tsd-kind-icon">Z</a>
+
+## Enumeration members
+
+### BoxPlotLower
+
+BoxPlotLower: = "lower"
+
+### BoxPlotMax
+
+BoxPlotMax: = "max"
+
+### BoxPlotMedian
+
+BoxPlotMedian: = "median"
+
+### BoxPlotMinimum
+
+BoxPlotMinimum: = "minimum"
+
+### BoxPlotUpper
+
+BoxPlotUpper: = "upper"
+
+### Close
+
+Close: = "close"
+
+### High
+
+High: = "high"
+
+### Low
+
+Low: = "low"
+
+### Open
+
+Open: = "open"
+
+### X1
+
+X1: = "x1"
+
+### Y
+
+Y: = "y"
+
+### Y1
+
+Y1: = "y1"
+
+### Z
+
+Z: = "z"
+
+## Legend
+
+- Constructor
+- Property
+- Method
+- Accessor
+
+<!-- -->
+
+- Inherited constructor
+- Inherited property
+- Inherited method
+- Inherited accessor
+
+<!-- -->
+
+- Property
+- Method
+
+<!-- -->
+
+- Protected property
+- Protected method
+
+<!-- -->
+
+- Static property
+- Static method
+
+Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a>

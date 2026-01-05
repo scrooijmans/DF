@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(cargo check:*)",
+      "Bash(bun run check:*)",
+      "Bash(ls:*)",
+      "Bash(cargo test:*)",
+      "Bash(pkill:*)",
+      "Bash(bun add:*)",
+      "Bash(bun run:*)",
+      "Bash(bun svelte-kit:*)",
+      "Bash(bunx svelte-kit sync:*)",
+      "Bash(timeout 15 bun run dev:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(curl:*)",
+      "Bash(bash)",
+      "Bash(cargo clean:*)",
+      "Bash(cargo fix:*)",
+      "Bash(sqlite3:*)",
+      "Bash(cargo build:*)",
+      "Bash(xargs:*)",
+      "Bash(find:*)",
+      "Bash(bun create:*)",
+      "Bash(bun install:*)",
+      "Bash(bunx tauri init:*)",
+      "Bash(cargo tauri build:*)"
+    ]
+  }
+}

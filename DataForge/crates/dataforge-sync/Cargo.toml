@@ -1,0 +1,51 @@
+[package]
+name = "dataforge-sync"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Git-like sync protocol for DataForge"
+
+[dependencies]
+dataforge-core.workspace = true
+
+# HTTP client
+reqwest.workspace = true
+
+# HTTP server
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+
+# Database (server-side persistence)
+rusqlite.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Async
+tokio.workspace = true
+
+# Object storage (S3/MinIO presigned URLs)
+opendal.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Utilities
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+sha2.workspace = true
+hex.workspace = true
+base64 = "0.22"
+
+[[bin]]
+name = "dataforge-test-server"
+path = "src/bin/test_server.rs"
+
+[[bin]]
+name = "dataforge-sync-server"
+path = "src/bin/sync_server.rs"

@@ -1,0 +1,279 @@
+# File upload and validation with Projects
+
+## Project-based File Uploads
+
+MudRock implements a project-based file upload system that follows the database architecture: **Projects → MinIO Buckets**. Users upload files to projects, which are automatically mapped to their corresponding MinIO storage buckets.
+
+### Architecture Overview
+
+- **Frontend**: Users select a project for file upload
+- **Backend**: Files are uploaded to the project's associated MinIO bucket (`project-{project-id}`)
+- **Database**: Project metadata and permissions are stored in PostgreSQL
+- **Storage**: Files are stored in MinIO with the project's bucket structure
+
+## File uploads
+
+From version 2, Superforms has full support for file uploads. For that, you need a schema that can validate files. Zod has this possibility:
+
+```
+// NOTE: Import fail from Superforms, not from @sveltejs/kit!
+import { superValidate, fail, message } from 'sveltekit-superforms';
+import { zod } from 'sveltekit-superforms/adapters';
+import { z } from 'zod';
+
+const schema = z.object({
+  image: z
+    .instanceof(File, { message: 'Please upload a file.'})
+    .refine((f) => f.size < 100_000, 'Max 100 kB upload size.')
+});
+
+export const load = async () => {
+  return {
+    form: await superValidate(zod(schema))
+  }
+};
+
+export const actions = {
+  default: async ({ request }) => {
+    const form = await superValidate(request, zod(schema));
+
+    if (!form.valid) {
+      return fail(400, { form });
+    }
+
+    // TODO: Do something with the image
+    console.log(form.data.image);
+
+    return message(form, 'You have uploaded a valid file!');
+  }
+};
+```
+
+## Returning files in form actions
+
+**Important:** Because file objects cannot be serialized, you must return the form using `fail`, `message` or `setError` imported from _Superforms_, not from SvelteKit:
+
+```
+import { message, setError, fail } from 'sveltekit-superforms';
+
+// message, setError and the Superforms fail handles this automatically:
+if (!form.valid) return fail(400, { form });
+return message(form, 'Posted OK!');
+return setError(form, 'image', 'Could not process file.');
+```
+
+Otherwise a `withFiles` helper function is required:
+
+```
+// Importing the default fail:
+import { fail } from '@sveltejs/kit';
+// Prefer to import message, setError and fail from here instead:
+import { withFiles } from 'sveltekit-superforms';
+
+// With the @sveltejs/kit fail:
+if (!form.valid) {
+  return fail(400, withFiles({ form }));
+}
+
+// When returning just the form
+return withFiles({ form })
+```
+
+This will remove the file objects from the form data, so SvelteKit can serialize it properly.
+
+## MudRock Project-based Upload Examples
+
+### Project Upload Service
+
+```typescript
+// Get projects available for file upload
+import {
+  getProjectsForUpload,
+  getProjectForUpload,
+} from "$lib/services/project-upload-service";
+
+// Get all projects where user has editor/owner permissions
+const projects = await getProjectsForUpload();
+
+// Get specific project details
+const project = await getProjectForUpload(projectId);
+```
+
+### CSV Upload to Project
+
+```typescript
+// Upload CSV files to a project (maps to MinIO bucket)
+import {
+  uploadCsvToProject,
+  uploadMultipleCsvToProject,
+} from "$lib/tauri-commands/csv-project-upload-fetching";
+
+// Single file upload
+const result = await uploadCsvToProject(file, projectId);
+
+// Multiple files upload
+const results = await uploadMultipleCsvToProject(files, projectId);
+```
+
+### Project State Management
+
+```typescript
+// Enhanced state management for project-based uploads
+import { getContentDataIngestionProjectState } from "./content-data-ingestion-project-state.svelte";
+
+const ingestionState = getContentDataIngestionProjectState();
+
+// Set selected project
+ingestionState.setSelectedProject(projectId);
+
+// Get current project's bucket name
+const bucketName = ingestionState.getCurrentBucketName();
+```
+
+### Complete Upload Flow
+
+1. **Project Selection**: User selects a project from available projects (where they have editor/owner permissions)
+2. **File Validation**: CSV files are validated for type, size, and content
+3. **Project-to-Bucket Mapping**: Project ID is mapped to MinIO bucket name (`project-{project-id}`)
+4. **File Upload**: Files are uploaded to the project's MinIO bucket
+5. **Database Integration**: Upload metadata is stored in PostgreSQL
+6. **State Management**: UI state is updated with upload progress and results
+
+### Permission-based Access
+
+- **Owner**: Can upload files to any project they own
+- **Editor**: Can upload files to projects they have edit access to
+- **Viewer**: Cannot upload files (not shown in project list)
+
+### Storage Structure
+
+```
+project-{project-id}/
+├── shared/                    # Project-wide shared data
+├── workspaces/
+│   ├── {workspace-id}/
+│   │   ├── data/             # Workspace-specific datasets
+│   │   ├── notebooks/        # Notebook artifacts and outputs
+│   │   ├── temp/            # Temporary processing data
+│   │   └── exports/         # Workspace exports
+│   └── ...
+└── exports/                  # Project-level exports
+```
+
+## Examples
+
+The recommended way to bind the file input to the form data is through a `fileProxy` or `filesProxy`, but you can also do it with an `on:input` handler. Here are examples for both, which also shows how to add client-side validation for files, which can save plenty of bandwidth!
+
+### Single file input
+
+```
+export const schema = z.object({
+  image: z
+    .instanceof(File, { message: 'Please upload a file.'})
+    .refine((f) => f.size < 100_000, 'Max 100 kB upload size.')
+});
+```
+
+```
+<script lang="ts">
+  import { superForm, fileProxy } from 'sveltekit-superforms'
+  import { zodClient } from 'sveltekit-superforms/adapters'
+  import { schema } from './schema.js'
+
+  let { data } = $props();
+
+  const { form, enhance, errors } = superForm(data.form, {
+    validators: zodClient(schema)
+  })
+
+  const file = fileProxy(form, 'image')
+</script>
+
+<form method="POST" enctype="multipart/form-data" use:enhance>
+  <input
+    type="file"
+    name="image"
+    accept="image/png, image/jpeg"
+    bind:files={$file}
+  />
+  {#if $errors.image}<span>{$errors.image}</span>{/if}
+  <button>Submit</button>
+</form>
+```
+
+### Multiple files
+
+We need an array to validate multiple files:
+
+```
+const schema = z.object({
+  images: z
+    .instanceof(File, { message: 'Please upload a file.'})
+    .refine((f) => f.size < 100_000, 'Max 100 kB upload size.')
+    .array()
+});
+```
+
+```
+<script lang="ts">
+  import { superForm, filesProxy } from 'sveltekit-superforms'
+  import { zodClient } from 'sveltekit-superforms/adapters'
+  import { schema } from './schema.js'
+
+  let { data } = $props();
+
+  const { form, enhance, errors } = superForm(data.form, {
+    validators: zodClient(schema)
+  })
+
+  const files = filesProxy(form, 'images');
+</script>
+
+<form method="POST" enctype="multipart/form-data" use:enhance>
+  <input
+    type="file"
+    multiple
+    name="images"
+    accept="image/png, image/jpeg"
+    bind:files={$files}
+  />
+  {#if $errors.images}<span>{$errors.images}</span>{/if}
+  <button>Submit</button>
+</form>
+```
+
+## Validating files manually
+
+If your validation library cannot validate files, you can obtain `FormData` from the request and extract the files from there, after validation:
+
+```
+import { message, fail } from 'sveltekit-superforms';
+
+export const actions = {
+  default: async ({ request }) => {
+    const formData = await request.formData();
+    const form = await superValidate(formData, zod(schema));
+
+    if (!form.valid) return fail(400, { form });
+
+    const image = formData.get('image');
+    if (image instanceof File) {
+      // Validate and process the image.
+    }
+
+    return message(form, 'Thank you for uploading an image!');
+  }
+};
+```
+
+If the file field isn’t a part of the schema, but you still want errors for it, you can add an optional field to the schema with the same name, and use [setError](about:/concepts/error-handling#seterror) to set and display an error message.
+
+## Progress bar for uploads
+
+If you’d like a progress bar for large file uploads, check out the [customRequest](about:/concepts/events#customrequest) option for the `onSubmit` event.
+
+## Preventing file uploads
+
+To prevent file uploads, set the `{ allowFiles: false }` option in `superValidate`. This will set all files to `undefined`, so you don’t have to use `withFiles`.
+
+This will also happen if you have migrated from version 1 and defined [SUPERFORMS_LEGACY](about:/migration-v2/#the-biggest-change-important). In that case, set `{ allowFiles: true }` to allow files.

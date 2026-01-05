@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+build/
+dist/
+.svelte-kit/
+.output
+
+# Tauri
+src-tauri/target/
+**/src-tauri/target/
+
+# Rust build artifacts
+target/
+**/target/
+
+# Data files
+data/
+
+# Environment
+.env
+.env.*
+!.env.example
+!.env.test
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+
+# Misc
+*.pem
+
+# Deployment
+.vercel
+.netlify
+.wrangler
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Blob storage
+blob-storage/

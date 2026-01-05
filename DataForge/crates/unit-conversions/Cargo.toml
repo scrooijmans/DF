@@ -1,0 +1,17 @@
+[package]
+name = "unit-conversions"
+version = "0.1.0"
+edition = "2021"
+description = "Unit conversion utilities for petrophysical well log data"
+license = "MIT"
+authors = ["DataForge Contributors"]
+repository = "https://github.com/scrooijmans/DataForge"
+keywords = ["units", "conversion", "well-log", "petrophysics"]
+categories = ["science"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
+
+[dev-dependencies]
+approx = "0.5"

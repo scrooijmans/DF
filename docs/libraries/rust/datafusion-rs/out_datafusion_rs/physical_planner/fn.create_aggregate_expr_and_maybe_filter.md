@@ -1,0 +1,16 @@
+# Function create_aggregate_expr_and_maybe_filter Copy item path
+
+<a href="https://docs.rs/datafusion/50.2.0/src/datafusion/physical_planner.rs.html#1786-1816" class="src">Source</a>
+
+``` rust
+pub fn create_aggregate_expr_and_maybe_filter(
+    e: &Expr,
+    logical_input_schema: &DFSchema,
+    physical_input_schema: &Schema,
+    execution_props: &ExecutionProps,
+) -> Result<(Arc<AggregateFunctionExpr>, Option<Arc<dyn PhysicalExpr>>, Vec<PhysicalSortExpr>)>
+```
+
+Expand description
+
+Create an aggregate expression from a logical expression or an alias

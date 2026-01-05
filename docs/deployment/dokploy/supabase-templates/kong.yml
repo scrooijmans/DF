@@ -1,0 +1,88 @@
+_format_version: "1.1"
+
+consumers:
+  - username: ${DASHBOARD_USERNAME}
+    custom_id: ${DASHBOARD_USERNAME}
+    basicauth_credentials:
+      - username: ${DASHBOARD_USERNAME}
+        password: ${DASHBOARD_PASSWORD}
+
+services:
+  - name: supabase-auth-v1-open
+    url: http://supabase-auth:9999/verify
+    routes:
+      - name: supabase-auth-v1-open
+        strip_path: true
+        paths:
+          - /auth/v1/verify
+    plugins:
+      - name: cors
+  - name: supabase-auth-v1-open-callback
+    url: http://supabase-auth:9999/callback
+    routes:
+      - name: supabase-auth-v1-open-callback
+        strip_path: true
+        paths:
+          - /auth/v1/callback
+    plugins:
+      - name: cors
+  - name: supabase-auth-v1-open-authorize
+    url: http://supabase-auth:9999/authorize
+    routes:
+      - name: supabase-auth-v1-open-authorize
+        strip_path: true
+        paths:
+          - /auth/v1/authorize
+    plugins:
+      - name: cors
+  - name: supabase-auth-v1
+    _comment: "GoTrue: /auth/v1/* -> http://supabase-auth:9999/*"
+    url: http://supabase-auth:9999/
+    routes:
+      - name: supabase-auth-v1-all
+        strip_path: true
+        paths:
+          - /auth/v1/
+  - name: supabase-rest
+    _comment: "PostgREST: /rest/v1/* -> http://supabase-rest:3000/*"
+    url: http://supabase-rest:3000/
+    routes:
+      - name: supabase-rest-all
+        strip_path: true
+        paths:
+          - /rest/v1/
+  - name: supabase-realtime
+    _comment: "Realtime: /realtime/v1/* -> ws://supabase-realtime:4000/socket/*"
+    url: http://supabase-realtime:4000/socket/
+    routes:
+      - name: supabase-realtime-all
+        strip_path: true
+        paths:
+          - /realtime/v1/
+  - name: supabase-storage
+    _comment: "Storage: /storage/v1/* -> http://supabase-storage:5000/*"
+    url: http://supabase-storage:5000/
+    routes:
+      - name: supabase-storage-all
+        strip_path: true
+        paths:
+          - /storage/v1/
+  - name: supabase-meta
+    _comment: "pg-meta: /pg/* -> http://supabase-meta:8080/*"
+    url: http://supabase-meta:8080/
+    routes:
+      - name: supabase-meta-all
+        strip_path: true
+        paths:
+          - /pg/
+  - name: supabase-studio
+    _comment: "Studio: /* -> http://supabase-studio:3000/*"
+    url: http://supabase-studio:3000/
+    routes:
+      - name: supabase-studio-all
+        paths:
+          - /
+    plugins:
+      - name: basic-auth
+        config:
+          hide_credentials: false

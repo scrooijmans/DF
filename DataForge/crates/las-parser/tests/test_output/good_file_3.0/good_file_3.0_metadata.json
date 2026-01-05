@@ -1,0 +1,27 @@
+{
+  "well_name": "good_file_3.0",
+  "original_well_name": "DUMMY WELL",
+  "company": "DUMMY COMP",
+  "field": "DUMMY FIELD",
+  "location": "DUMMY LOC",
+  "province": "DUMMY STATE",
+  "uwi": "99999999999999",
+  "date": "01/01/2001",
+  "start_depth": 0.0,
+  "stop_depth": 163.0,
+  "step": 1.0,
+  "null_value": -9999.0,
+  "parameters": {
+    "TLFamily_Difference": "",
+    "group": "DEPTH_SHIFTING_TABLES",
+    "TLFamily_Bottom": "",
+    "TLFamily_Delta": "",
+    "REAL_CREATION_DATE": "Wed Apr 3 2001-01_01_01",
+    "TLFamily_Top": "Measured Depth",
+    "TLFamily_Index": "",
+    "SET": "SHIFT_LWD-TO-WRL_GR-SON_5725-22170",
+    "TLFamily_Flip": ""
+  },
+  "curve_count": 6,
+  "data_points": 161
+}

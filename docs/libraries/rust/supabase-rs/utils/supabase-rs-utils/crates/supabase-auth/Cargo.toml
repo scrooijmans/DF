@@ -1,0 +1,36 @@
+[package]
+name = "rp-supabase-auth"
+version.workspace = true
+authors.workspace = true
+description = """
+A Rust client library for interacting with Supabase’s Authentication API.
+"""
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+edition.workspace = true
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+redact.workspace = true
+url.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+futures.workspace = true
+serde.workspace = true
+simd-json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+typed-builder.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+test-log.workspace = true
+tracing-subscriber.workspace = true
+mockito.workspace = true
+rp-supabase-mock.workspace = true
+pretty_assertions.workspace = true

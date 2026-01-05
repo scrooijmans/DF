@@ -1,0 +1,49 @@
+Section,Mnemonic,Unit,Value,Description
+~Version,WRAP,,NO,ONE LINE PER DEPTH STEP
+~Version,VERS,,2.0,CWLS LOG ASCII STANDARD - VERSION 2.0
+~Well,LOC,,Mt Eba,LOC
+~Well,CTRY,,,
+~Well,STRT,M,0.0500000,FIRST INDEX VALUE
+~Well,STEP,M,0.0500000,STEP
+~Well,SRVC,,,
+~Well,STAT,,SA,STAT
+~Well,CNTY,,,
+~Well,FLD,,,
+~Well,STOP,M,136.600,LAST INDEX VALUE
+~Well,DATE,,15/03/2015,DATE
+~Well,UWI,,6038-187,WUNT
+~Well,WELL,,Scorpio E1,WELL
+~Well,COMP,,,COMP
+~Well,NULL,,-99999,NULL VALUE
+~Parameter,AGL,,,AGL
+~Parameter,UNIT,,,UNIT
+~Parameter,ZONE,,53J,ZONE
+~Parameter,WIT,,,WIT
+~Parameter,TDL,,135.2 m,TDL
+~Parameter,WPMT,,,WPMT
+~Parameter,Y,,6686430,Y
+~Parameter,PROD,,,PROD
+~Parameter,EREF,,,EREF
+~Parameter,FluidLevel,,54 m,FluidLevel
+~Parameter,JOBN,,,JOBN
+~Parameter,DREF,,GL,DREF
+~Parameter,BS,,216 mm,BS
+~Parameter,X,,560160,X
+~Parameter,STEP,,5 cm,STEP
+~Parameter,PURP,,Cased hole stratigraphy,PURP
+~Parameter,CSGS,,100 mm,CSGS
+~Parameter,TDD,,136 m,TDD
+~Parameter,CSGL,,0 m - 135 m,CSGL
+~Parameter,CSGT,,PVC,CSGT
+~Parameter,MUD,,Water,MUD
+~Parameter,PROJ,,,PROJ
+~Parameter,ENG,,,ENG
+~Curves,DEPT,M,,DEPTH
+~Curves,CALI,MM,,CALI
+~Curves,DFAR,G/CM3,,DFAR
+~Curves,DNEAR,G/CM3,,DNEAR
+~Curves,GAMN,GAPI,,GAMN
+~Curves,NEUT,CPS,,NEUT
+~Curves,PR,OHM/M,,PR
+~Curves,SP,MV,,SP
+~Curves,COND,MS/M,,COND

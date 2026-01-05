@@ -1,0 +1,77 @@
+Section,Mnemonic,Unit,Value,Description
+~Version,DLM,,COMMA,DELIMITING CHARACTER BETWEEN DATA COLUMNS
+~Version,VERS,,3.0,CWLS LOG ASCII STANDARD -VERSION 3.0
+~Version,WRAP,,NO,ONE LINE PER DEPTH STEP
+~Well,CTRY,,CA,COUNTRY
+~Well,DATE,,13/12/1986,LOG DATE  {DD/MM/YYYY}
+~Well,PROV,,ALBERTA,PROVINCE
+~Well,WELL,,ANY ET AL 12-34-12-34,WELL
+~Well,UWI,,100123401234W500,UNIQUE WELL ID
+~Well,API,,12345678,API NUMBER
+~Well,LATI,DEG,34.56789,Latitude  {F}
+~Well,LONG,DEG,-102.34567,Longitude  {F}
+~Well,UTM,,,UTM LOCATION
+~Well,STOP,M,1669.7500,Last Index Value
+~Well,LIC,,0123456,LICENSE NUMBER
+~Well,NULL,,-999.25,NULL VALUE
+~Well,STEP,M,-0.1250,STEP
+~Well,STRT,M,1670.0000,First Index Value
+~Well,LOC,,12-34-12-34W5M,LOCATION
+~Well,SRVC,,ANY LOGGING COMPANY INC.,SERVICE COMPANY
+~Well,FLD,,WILDCAT,FIELD
+~Well,COMP,,ANY OIL COMPANY INC.,COMPANY
+~Well,GDAT,,NAD83,Geodetic Datum
+~Parameter,TIML,,,Date/Time Logger Tagged Bottom   | RUN[2]
+~Parameter,RUN_DATE,,23/10/1998,Run 2 date  {DD/MM/YYYY}     | Run[2]
+~Parameter,PH,,,PH                               | RUN[2]
+~Parameter,MUD,,,Mud type                         | RUN[2]
+~Parameter,NMAT_Depth[1],M,"500,1500",Neutron Matrix Depth interval {F}
+~Parameter,RUNS,,2,# of Runs for this well.
+~Parameter,BASE,,,Home Base of Logging Unit        | RUN[2]
+~Parameter,WIT,,,Witnessed By                     | RUN[2]
+~Parameter,BS,MM,,Bit Size                         | RUN[2]
+~Parameter,MUDS,,,Mud Source                       | RUN[2]
+~Parameter,RMT,DEGC,,Temperature of Mud               | RUN[2]
+~Parameter,TIMC,,,Date/Time Circulation Stopped    | RUN[2]
+~Parameter,MUDV,S,,Mud Viscosity (Funnel)           | RUN[2]
+~Parameter,CSGS,MM,,Casing Size                      | RUN[2]
+~Parameter,EREF,M,,Elevation of Depth Reference     | RUN[2]
+~Parameter,RM,OHMM,,Resistivity of Mud               | RUN[2]
+~Parameter,CSGL,M,,Casing Bottom Logger             | RUN[2]
+~Parameter,RUN[1],,1,Run 1
+~Parameter,MATR,,LIME,Neutron Porosity Matrix          |  NMAT_Depth[2]
+~Parameter,DREF,,,"Depth Reference (KB,DF,CB)       | RUN[2]"
+~Parameter,ENG,,,Recording Engineer               | RUN[2]
+~Parameter,CSGD,M,,Casing Bottom Driller            | RUN[2]
+~Parameter,RMF,OHMM,,Rest. of Mud Filtrate            | RUN[2]
+~Parameter,RMCT,DEGC,,Temp. of Mud Cake                | RUN[2]
+~Parameter,RMC,OHMM,,Rest. of Mud Cake                | RUN[2]
+~Parameter,MDEN,KG/M3,2710,Matrix Bulk Density              |  DMAT_Depth[2]
+~Parameter,TDD,M,,Total Depth Driller              | RUN[2]
+~Parameter,CSGW,KG/M,,Casing Weight                    | RUN[2]
+~Parameter,RMFT,DEGC,,Temp. of Mud Filtrate            | RUN[2]
+~Parameter,UNIT,,,Logging Unit Number              | RUN[2]
+~Parameter,DMAT_Depth[2],M,"1510,2510",Density Matrix Depth interval {F}
+~Parameter,RUN[2],,2,Run 2
+~Parameter,MUDD,KG/M3,,Mud Density                      | RUN[2]
+~Parameter,NMAT_Depth[2],M,"1500,2500",Neutron Matrix Depth interval {F}
+~Parameter,RUN_DEPTH,M,"1500,2513",Run 2 Depth Interval  {F}    | Run[2]
+~Parameter,TDL,M,,Total Depth Logger               | RUN[2]
+~Parameter,TMAX,DEGC,,Max. Recorded Temp.              | RUN[2]
+~Parameter,FL,CC,,Fluid Loss                       | RUN[2]
+~Parameter,DMAT_Depth[1],M,"500,1510",Density Matrix Depth interval {F}
+~Curves,DEPT,M,,DEPTH
+~Curves,DT,US/M,,SONIC TRANSIT TIME
+~Curves,RHOB,K/M3,,BULK DENSITY
+~Curves,NPHI,V/V,,NEUTRON POROSITY
+~Curves,SFLU,OHMM,,SHALLOW RESISTIVITY
+~Curves,SFLA,OHMM,,SHALLOW RESISTIVITY
+~Curves,ILM,OHMM,,MEDIUM RESISTIVITY
+~Curves,ILD,OHMM,,DEEP RESISTIVITY
+~Curves,YME,PA,,YOUNGS MODULES
+~Curves,CDES,123,,CORE DESCRIPTION
+~Curves,NMR[1],ms,,NMR Echo Array
+~Curves,NMR[2],ms,,NMR Echo Array
+~Curves,NMR[3],ms,,NMR Echo Array
+~Curves,NMR[4],ms,,NMR Echo Array
+~Curves,NMR[5],ms,,NMR Echo Array

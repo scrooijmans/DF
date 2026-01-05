@@ -1,0 +1,51 @@
+[package]
+name = "examples"
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+color-eyre.workspace = true
+rp-supabase-realtime.workspace = true
+rp-supabase-auth.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+simd-json.workspace = true
+rp-supabase-client.workspace = true
+xshell.workspace = true
+eyre.workspace = true
+url.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "db-updates-example"
+path = "src/db_updates_example.rs"
+
+[[bin]]
+name = "client-example"
+path = "src/client_example.rs"
+
+[[bin]]
+name = "jwt-stream-example"
+path = "src/jwt_stream_example.rs"
+
+[[bin]]
+name = "auth-example"
+path = "src/auth_example.rs"
+
+[[bin]]
+name = "broadcast-example"
+path = "src/broadcast_example.rs"
+
+
+[[bin]]
+name = "presence-example"
+path = "src/presence_example.rs"

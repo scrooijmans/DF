@@ -1,0 +1,30 @@
+[package]
+name = "dataforge-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Storage abstraction for DataForge (S3, local filesystem, etc.)"
+
+[dependencies]
+# Storage abstraction
+opendal.workspace = true
+
+# Async
+tokio.workspace = true
+futures.workspace = true
+bytes.workspace = true
+async-trait.workspace = true
+
+# Utilities
+sha2.workspace = true
+hex.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Logging
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

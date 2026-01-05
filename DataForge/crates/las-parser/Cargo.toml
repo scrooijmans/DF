@@ -1,0 +1,19 @@
+[package]
+name = "las-parser"
+version = "0.1.0"
+edition = "2021"
+description = "LAS well log file parser for oil & gas well log data"
+license = "MIT"
+authors = ["DataForge Contributors"]
+repository = "https://github.com/scrooijmans/DataForge"
+keywords = ["las", "well-log", "oil-gas", "geology", "parser"]
+categories = ["parsing", "science"]
+
+[dependencies]
+las-types = { path = "../las-types" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]

@@ -1,0 +1,156 @@
+# Struct MemTable Copy item path
+
+<a href="https://docs.rs/datafusion-catalog/50.2.0/x86_64-unknown-linux-gnu/src/datafusion_catalog/memory/table.rs.html#58" class="src">Source</a>
+
+``` rust
+pub struct MemTable {
+    pub batches: Vec<Arc<RwLock<Vec<RecordBatch>>>>,
+    pub sort_order: Arc<Mutex<RawMutex, Vec<Vec<Sort>>>>,
+    /* private fields */
+}
+```
+
+Expand description
+
+In-memory data source for presenting a `Vec<RecordBatch>` as a data source that can be queried by DataFusion. This allows data to be pre-loaded into memory and then repeatedly queried without incurring additional file I/O overhead.
+
+## Fields<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#fields" class="anchor">§</a>
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#structfield.batches" class="anchor field">§</a>`batches: `<a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec"><code>Vec</code></a>`<`<a href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" class="struct" title="struct alloc::sync::Arc"><code>Arc</code></a>`<`<a href="https://docs.rs/tokio/1.47.1/x86_64-unknown-linux-gnu/tokio/sync/rwlock/struct.RwLock.html" class="struct" title="struct tokio::sync::rwlock::RwLock"><code>RwLock</code></a>`<`<a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec"><code>Vec</code></a>`<`<a href="https://docs.rs/datafusion/50.2.0/datafusion/common/arrow/array/struct.RecordBatch.html" class="struct" title="struct datafusion::common::arrow::array::RecordBatch"><code>RecordBatch</code></a>`>>>>`<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#structfield.sort_order" class="anchor field">§</a>`sort_order: `<a href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" class="struct" title="struct alloc::sync::Arc"><code>Arc</code></a>`<`<a href="https://docs.rs/lock_api/0.4.13/x86_64-unknown-linux-gnu/lock_api/mutex/struct.Mutex.html" class="struct" title="struct lock_api::mutex::Mutex"><code>Mutex</code></a>`<`<a href="https://docs.rs/parking_lot/0.12.4/x86_64-unknown-linux-gnu/parking_lot/raw_mutex/struct.RawMutex.html" class="struct" title="struct parking_lot::raw_mutex::RawMutex"><code>RawMutex</code></a>`, `<a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec"><code>Vec</code></a>`<`<a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec"><code>Vec</code></a>`<`<a href="https://docs.rs/datafusion/50.2.0/datafusion/logical_expr/struct.SortExpr.html" class="struct" title="struct datafusion::logical_expr::SortExpr"><code>Sort</code></a>`>>>>`
+
+Optional pre-known sort order(s). Must be `SortExpr`s. inserting data into this table removes the order
+
+## Implementations<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#implementations" class="anchor">§</a>
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#impl-MemTable" class="anchor">§</a>
+
+### impl <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>
+
+#### pub fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.try_new" class="fn">try_new</a>( schema: <a href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" class="struct" title="struct alloc::sync::Arc">Arc</a>\<<a href="https://docs.rs/datafusion/50.2.0/datafusion/common/arrow/datatypes/struct.Schema.html" class="struct" title="struct datafusion::common::arrow::datatypes::Schema">Schema</a>\>, partitions: <a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec">Vec</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec">Vec</a>\<<a href="https://docs.rs/datafusion/50.2.0/datafusion/common/arrow/array/struct.RecordBatch.html" class="struct" title="struct datafusion::common::arrow::array::RecordBatch">RecordBatch</a>\>\>, ) -\> <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" class="enum" title="enum core::result::Result">Result</a>\<<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>, <a href="https://docs.rs/datafusion/50.2.0/datafusion/error/enum.DataFusionError.html" class="enum" title="enum datafusion::error::DataFusionError">DataFusionError</a>\>
+
+Create a new in-memory table from the provided schema and record batches.
+
+Requires at least one partition. To construct an empty `MemTable`, pass `vec![vec![]]` as the `partitions` argument, this represents one partition with no batches.
+
+#### pub fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.with_constraints" class="fn">with_constraints</a>(self, constraints: <a href="https://docs.rs/datafusion/50.2.0/datafusion/common/struct.Constraints.html" class="struct" title="struct datafusion::common::Constraints">Constraints</a>) -\> <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>
+
+Assign constraints
+
+#### pub fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.with_column_defaults" class="fn">with_column_defaults</a>( self, column_defaults: <a href="https://doc.rust-lang.org/nightly/std/collections/hash/map/struct.HashMap.html" class="struct" title="struct std::collections::hash::map::HashMap">HashMap</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" class="struct" title="struct alloc::string::String">String</a>, <a href="https://docs.rs/datafusion/50.2.0/datafusion/prelude/enum.Expr.html" class="enum" title="enum datafusion::prelude::Expr">Expr</a>\>, ) -\> <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>
+
+Assign column defaults
+
+#### pub fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.with_sort_order" class="fn">with_sort_order</a>(self, sort_order: <a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec">Vec</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec">Vec</a>\<<a href="https://docs.rs/datafusion/50.2.0/datafusion/logical_expr/struct.SortExpr.html" class="struct" title="struct datafusion::logical_expr::SortExpr">Sort</a>\>\>) -\> <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>
+
+Specify an optional pre-known sort order(s). Must be `SortExpr`s.
+
+If the data is not sorted by this order, DataFusion may produce incorrect results.
+
+DataFusion may take advantage of this ordering to omit sorts or use more efficient algorithms.
+
+Note that multiple sort orders are supported, if some are known to be equivalent,
+
+#### pub async fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.load" class="fn">load</a>( t: <a href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" class="struct" title="struct alloc::sync::Arc">Arc</a>\<dyn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html" class="trait" title="trait datafusion::datasource::TableProvider">TableProvider</a>\>, output_partitions: <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" class="enum" title="enum core::option::Option">Option</a>\<<a href="https://doc.rust-lang.org/nightly/std/primitive.usize.html" class="primitive">usize</a>\>, state: &dyn <a href="https://docs.rs/datafusion/50.2.0/datafusion/catalog/trait.Session.html" class="trait" title="trait datafusion::catalog::Session">Session</a>, ) -\> <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" class="enum" title="enum core::result::Result">Result</a>\<<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>, <a href="https://docs.rs/datafusion/50.2.0/datafusion/error/enum.DataFusionError.html" class="enum" title="enum datafusion::error::DataFusionError">DataFusionError</a>\>
+
+Create a mem table by reading from another data source
+
+## Trait Implementations<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#trait-implementations" class="anchor">§</a>
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#impl-Debug-for-MemTable" class="anchor">§</a>
+
+### impl <a href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" class="trait" title="trait core::fmt::Debug">Debug</a> for <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.fmt" class="anchor">§</a>
+
+#### fn <a href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt" class="fn">fmt</a>(&self, f: &mut <a href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" class="struct" title="struct core::fmt::Formatter">Formatter</a>\<'\_\>) -\> <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" class="enum" title="enum core::result::Result">Result</a>\<<a href="https://doc.rust-lang.org/nightly/std/primitive.unit.html" class="primitive">()</a>, <a href="https://doc.rust-lang.org/nightly/core/fmt/struct.Error.html" class="struct" title="struct core::fmt::Error">Error</a>\>
+
+Formats the value using the given formatter. [Read more](https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt)
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#impl-TableProvider-for-MemTable" class="anchor">§</a>
+
+### impl <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html" class="trait" title="trait datafusion::datasource::TableProvider">TableProvider</a> for <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.insert_into" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.insert_into" class="fn">insert_into</a>\<'life0, 'life1, 'async_trait\>( &'life0 self, \_state: &'life1 dyn <a href="https://docs.rs/datafusion/50.2.0/datafusion/catalog/trait.Session.html" class="trait" title="trait datafusion::catalog::Session">Session</a>, input: <a href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" class="struct" title="struct alloc::sync::Arc">Arc</a>\<dyn <a href="https://docs.rs/datafusion/50.2.0/datafusion/physical_plan/trait.ExecutionPlan.html" class="trait" title="trait datafusion::physical_plan::ExecutionPlan">ExecutionPlan</a>\>, insert_op: <a href="https://docs.rs/datafusion/50.2.0/datafusion/logical_expr/logical_plan/dml/enum.InsertOp.html" class="enum" title="enum datafusion::logical_expr::logical_plan::dml::InsertOp">InsertOp</a>, ) -\> <a href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" class="struct" title="struct core::pin::Pin">Pin</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" class="struct" title="struct alloc::boxed::Box">Box</a>\<dyn <a href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" class="trait" title="trait core::future::future::Future">Future</a>\<Output = <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" class="enum" title="enum core::result::Result">Result</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" class="struct" title="struct alloc::sync::Arc">Arc</a>\<dyn <a href="https://docs.rs/datafusion/50.2.0/datafusion/physical_plan/trait.ExecutionPlan.html" class="trait" title="trait datafusion::physical_plan::ExecutionPlan">ExecutionPlan</a>\>, <a href="https://docs.rs/datafusion/50.2.0/datafusion/error/enum.DataFusionError.html" class="enum" title="enum datafusion::error::DataFusionError">DataFusionError</a>\>\> + <a href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" class="trait" title="trait core::marker::Send">Send</a> + 'async_trait\>\>
+
+where 'life0: 'async_trait, 'life1: 'async_trait, <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>: 'async_trait,
+
+Returns an ExecutionPlan that inserts the execution results of a given [`ExecutionPlan`](https://docs.rs/datafusion/50.2.0/datafusion/physical_plan/trait.ExecutionPlan.html "trait datafusion::physical_plan::ExecutionPlan") into this [`MemTable`](https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html "struct datafusion::datasource::MemTable").
+
+The [`ExecutionPlan`](https://docs.rs/datafusion/50.2.0/datafusion/physical_plan/trait.ExecutionPlan.html "trait datafusion::physical_plan::ExecutionPlan") must have the same schema as this [`MemTable`](https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html "struct datafusion::datasource::MemTable").
+
+##### <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#arguments" class="doc-anchor">§</a>Arguments
+
+- `state` - The [`SessionState`](https://docs.rs/datafusion/latest/datafusion/execution/session_state/struct.SessionState.html) containing the context for executing the plan.
+- `input` - The [`ExecutionPlan`](https://docs.rs/datafusion/50.2.0/datafusion/physical_plan/trait.ExecutionPlan.html "trait datafusion::physical_plan::ExecutionPlan") to execute and insert.
+
+##### <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#returns" class="doc-anchor">§</a>Returns
+
+- A plan that returns the number of rows written.
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.as_any" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#tymethod.as_any" class="fn">as_any</a>(&self) -\> &(dyn <a href="https://doc.rust-lang.org/nightly/core/any/trait.Any.html" class="trait" title="trait core::any::Any">Any</a> + 'static)
+
+Returns the table provider as [`Any`](https://doc.rust-lang.org/nightly/core/any/trait.Any.html "trait core::any::Any") so that it can be downcast to a specific implementation.
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.schema" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#tymethod.schema" class="fn">schema</a>(&self) -\> <a href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" class="struct" title="struct alloc::sync::Arc">Arc</a>\<<a href="https://docs.rs/datafusion/50.2.0/datafusion/common/arrow/datatypes/struct.Schema.html" class="struct" title="struct datafusion::common::arrow::datatypes::Schema">Schema</a>\>
+
+Get a reference to the schema for this table
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.constraints" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.constraints" class="fn">constraints</a>(&self) -\> <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" class="enum" title="enum core::option::Option">Option</a>\<&<a href="https://docs.rs/datafusion/50.2.0/datafusion/common/struct.Constraints.html" class="struct" title="struct datafusion::common::Constraints">Constraints</a>\>
+
+Get a reference to the constraints of the table. Returns: [Read more](https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.constraints)
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.table_type" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#tymethod.table_type" class="fn">table_type</a>(&self) -\> <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/enum.TableType.html" class="enum" title="enum datafusion::datasource::TableType">TableType</a>
+
+Get the type of this table for metadata/catalog purposes.
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.scan" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#tymethod.scan" class="fn">scan</a>\<'life0, 'life1, 'life2, 'life3, 'async_trait\>( &'life0 self, state: &'life1 dyn <a href="https://docs.rs/datafusion/50.2.0/datafusion/catalog/trait.Session.html" class="trait" title="trait datafusion::catalog::Session">Session</a>, projection: <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" class="enum" title="enum core::option::Option">Option</a>\<&'life2 <a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec">Vec</a>\<<a href="https://doc.rust-lang.org/nightly/std/primitive.usize.html" class="primitive">usize</a>\>\>, \_filters: &'life3 \[<a href="https://docs.rs/datafusion/50.2.0/datafusion/prelude/enum.Expr.html" class="enum" title="enum datafusion::prelude::Expr">Expr</a>\], \_limit: <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" class="enum" title="enum core::option::Option">Option</a>\<<a href="https://doc.rust-lang.org/nightly/std/primitive.usize.html" class="primitive">usize</a>\>, ) -\> <a href="https://doc.rust-lang.org/nightly/core/pin/struct.Pin.html" class="struct" title="struct core::pin::Pin">Pin</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" class="struct" title="struct alloc::boxed::Box">Box</a>\<dyn <a href="https://doc.rust-lang.org/nightly/core/future/future/trait.Future.html" class="trait" title="trait core::future::future::Future">Future</a>\<Output = <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" class="enum" title="enum core::result::Result">Result</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/sync/struct.Arc.html" class="struct" title="struct alloc::sync::Arc">Arc</a>\<dyn <a href="https://docs.rs/datafusion/50.2.0/datafusion/physical_plan/trait.ExecutionPlan.html" class="trait" title="trait datafusion::physical_plan::ExecutionPlan">ExecutionPlan</a>\>, <a href="https://docs.rs/datafusion/50.2.0/datafusion/error/enum.DataFusionError.html" class="enum" title="enum datafusion::error::DataFusionError">DataFusionError</a>\>\> + <a href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" class="trait" title="trait core::marker::Send">Send</a> + 'async_trait\>\>
+
+where 'life0: 'async_trait, 'life1: 'async_trait, 'life2: 'async_trait, 'life3: 'async_trait, <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html" class="struct" title="struct datafusion::datasource::MemTable">MemTable</a>: 'async_trait,
+
+Create an [`ExecutionPlan`](https://docs.rs/datafusion/50.2.0/datafusion/physical_plan/trait.ExecutionPlan.html "trait datafusion::physical_plan::ExecutionPlan") for scanning the table with optionally specified `projection`, `filter` and `limit`, described below. [Read more](https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#tymethod.scan)
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.get_column_default" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.get_column_default" class="fn">get_column_default</a>(&self, column: &<a href="https://doc.rust-lang.org/nightly/std/primitive.str.html" class="primitive">str</a>) -\> <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" class="enum" title="enum core::option::Option">Option</a>\<&<a href="https://docs.rs/datafusion/50.2.0/datafusion/prelude/enum.Expr.html" class="enum" title="enum datafusion::prelude::Expr">Expr</a>\>
+
+Get the default value for a column, if available.
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.get_table_definition" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.get_table_definition" class="fn">get_table_definition</a>(&self) -\> <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" class="enum" title="enum core::option::Option">Option</a>\<&<a href="https://doc.rust-lang.org/nightly/std/primitive.str.html" class="primitive">str</a>\>
+
+Get the create statement used to create this table, if available.
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.get_logical_plan" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.get_logical_plan" class="fn">get_logical_plan</a>(&self) -\> <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" class="enum" title="enum core::option::Option">Option</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/borrow/enum.Cow.html" class="enum" title="enum alloc::borrow::Cow">Cow</a>\<'\_, <a href="https://docs.rs/datafusion/50.2.0/datafusion/logical_expr/enum.LogicalPlan.html" class="enum" title="enum datafusion::logical_expr::LogicalPlan">LogicalPlan</a>\>\>
+
+Get the [`LogicalPlan`](https://docs.rs/datafusion/50.2.0/datafusion/logical_expr/enum.LogicalPlan.html "enum datafusion::logical_expr::LogicalPlan") of this table, if available.
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.supports_filters_pushdown" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.supports_filters_pushdown" class="fn">supports_filters_pushdown</a>( &self, filters: &\[&<a href="https://docs.rs/datafusion/50.2.0/datafusion/prelude/enum.Expr.html" class="enum" title="enum datafusion::prelude::Expr">Expr</a>\], ) -\> <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" class="enum" title="enum core::result::Result">Result</a>\<<a href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" class="struct" title="struct alloc::vec::Vec">Vec</a>\<<a href="https://docs.rs/datafusion/50.2.0/datafusion/logical_expr/enum.TableProviderFilterPushDown.html" class="enum" title="enum datafusion::logical_expr::TableProviderFilterPushDown">TableProviderFilterPushDown</a>\>, <a href="https://docs.rs/datafusion/50.2.0/datafusion/error/enum.DataFusionError.html" class="enum" title="enum datafusion::error::DataFusionError">DataFusionError</a>\>
+
+Specify if DataFusion should provide filter expressions to the TableProvider to apply *during* the scan. [Read more](https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.supports_filters_pushdown)
+
+<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#method.statistics" class="anchor">§</a>
+
+#### fn <a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/trait.TableProvider.html#method.statistics" class="fn">statistics</a>(&self) -\> <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" class="enum" title="enum core::option::Option">Option</a>\<<a href="https://docs.rs/datafusion/50.2.0/datafusion/common/struct.Statistics.html" class="struct" title="struct datafusion::common::Statistics">Statistics</a>\>
+
+Get statistics for this table, if available Although not presently used in mainline DataFusion, this allows implementation specific behavior for downstream repositories, in conjunction with specialized optimizer rules to perform operations such as re-ordering of joins.
+
+## Auto Trait Implementations<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#synthetic-implementations" class="anchor">§</a>
+
+## Blanket Implementations<a href="https://docs.rs/datafusion/50.2.0/datafusion/datasource/struct.MemTable.html#blanket-implementations" class="anchor">§</a>

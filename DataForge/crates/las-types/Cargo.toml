@@ -1,0 +1,18 @@
+[package]
+name = "las-types"
+version = "0.1.0"
+edition = "2021"
+description = "Core data structures and types for LAS well log files"
+license = "MIT"
+authors = ["DataForge Contributors"]
+repository = "https://github.com/scrooijmans/DataForge"
+keywords = ["las", "well-log", "oil-gas", "geology", "data-structures"]
+categories = ["data-structures", "science"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+regex = { workspace = true }
+lazy_static = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true } 

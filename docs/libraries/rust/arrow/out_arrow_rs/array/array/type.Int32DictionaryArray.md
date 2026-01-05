@@ -1,0 +1,29 @@
+# Type Alias Int32DictionaryArray Copy item path
+
+<a href="https://docs.rs/arrow-array/56.2.0/x86_64-unknown-linux-gnu/src/arrow_array/array/dictionary_array.rs.html#80" class="src">Source</a>
+
+``` rust
+pub type Int32DictionaryArray = DictionaryArray<Int32Type>;
+```
+
+Expand description
+
+A [`DictionaryArray`](https://docs.rs/arrow/latest/arrow/array/struct.DictionaryArray.html "struct arrow::array::DictionaryArray") indexed by `i32`
+
+## <a href="https://docs.rs/arrow/latest/arrow/array/array/type.Int32DictionaryArray.html#example-using-collect" class="doc-anchor">§</a>Example: Using `collect`
+
+``` rust
+
+let array: Int32DictionaryArray = vec!["a", "a", "b", "c"].into_iter().collect();
+let values: Arc<dyn Array> = Arc::new(StringArray::from(vec!["a", "b", "c"]));
+assert_eq!(array.keys(), &Int32Array::from(vec![0, 0, 1, 2]));
+assert_eq!(array.values(), &values);
+```
+
+See [`DictionaryArray`](https://docs.rs/arrow/latest/arrow/array/struct.DictionaryArray.html "struct arrow::array::DictionaryArray") for more information and examples
+
+## Aliased Type<a href="https://docs.rs/arrow/latest/arrow/array/array/type.Int32DictionaryArray.html#aliased-type" class="anchor">§</a>
+
+``` rust
+pub struct Int32DictionaryArray { /* private fields */ }
+```

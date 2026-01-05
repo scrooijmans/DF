@@ -1,0 +1,25 @@
+[package]
+name = "rp-supabase-client"
+description = """
+Supabase PostgREST client wrapper with auth capabilities
+"""
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license.workspace = true
+edition.workspace = true
+readme = "README.md"
+
+[dependencies]
+rp-postgrest.workspace = true
+tracing.workspace = true
+rp-postgrest-error.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+simd-json.workspace = true
+futures.workspace = true
+rp-supabase-auth.workspace = true
+
+[lints]
+workspace = true

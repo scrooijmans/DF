@@ -1,0 +1,105 @@
+mod commands;
+mod compute;
+mod local_db;
+
+use commands::{ActiveExecutions, ComputeState};
+use local_db::LocalDbState;
+use log::info;
+use std::sync::Mutex;
+use tauri::Manager;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(
+            tauri_plugin_log::Builder::default()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
+        .manage(Mutex::new(ComputeState::default()))
+        .manage(ActiveExecutions::default())
+        .invoke_handler(tauri::generate_handler![
+            // DataForge data access (read-only)
+            commands::get_dataforge_status,
+            commands::list_workspaces,
+            commands::list_wells,
+            commands::list_curves,
+            commands::list_all_curves_for_workspace,
+            commands::get_curve_data,
+            commands::get_curve_data_segmented,  // OSDU-inspired segment-based access
+            // Legacy computations (to be deprecated)
+            commands::compute_moving_average,
+            // UDF system
+            commands::list_providers,
+            commands::list_udfs,
+            commands::get_udf_parameters,
+            commands::execute_udf,
+            commands::validate_udf_parameters,
+            // Save output
+            commands::save_output_curve,
+            // Provenance
+            commands::get_curve_provenance,
+            // Progress and cancellation
+            commands::get_execution_progress,
+            commands::cancel_execution,
+            commands::list_active_executions,
+            // Layout persistence
+            commands::save_workspace_layout,
+            commands::get_workspace_layout,
+            commands::delete_workspace_layout,
+        ])
+        .setup(|app| {
+            info!("🚀 Initializing DataForge Compute");
+
+            // Get the main window (it's hidden initially)
+            let window = app.get_webview_window("main").unwrap();
+
+            // Initialize state - locate DataForge's data directory
+            let state = app.state::<Mutex<ComputeState>>();
+            let dataforge_data_dir = {
+                let mut state = state.lock().expect("Failed to lock compute state");
+                let init_result = state.initialize();
+
+                match init_result {
+                    Ok(_) => {
+                        info!("✅ Compute state initialized successfully");
+                    }
+                    Err(e) => {
+                        log::error!("❌ Failed to initialize compute state: {}", e);
+                    }
+                }
+
+                state.dataforge_data_dir.clone()
+            };
+
+            // Initialize local database for user preferences and layout storage
+            if let Some(data_dir) = dataforge_data_dir {
+                match LocalDbState::new(&data_dir) {
+                    Ok(local_db) => {
+                        info!("✅ Local database initialized successfully");
+                        app.manage(local_db);
+                    }
+                    Err(e) => {
+                        log::error!("❌ Failed to initialize local database: {}", e);
+                    }
+                }
+            } else {
+                log::warn!("⚠️ DataForge data directory not found, local database not initialized");
+            }
+
+            // Open devtools in debug mode
+            #[cfg(debug_assertions)]
+            {
+                window.open_devtools();
+            }
+
+            // Show window after initialization
+            info!("👁️ Showing main window");
+            window.show().expect("Failed to show main window");
+
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

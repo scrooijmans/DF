@@ -1,0 +1,25 @@
+{
+  "well_name": "sample_big_1.2",
+  "original_well_name": "ANY ET AL OIL WELL #12",
+  "company": "ANY OIL COMPANY LTD.",
+  "field": "EDAM",
+  "location": "A9-16-49-20W3M",
+  "province": "SASKATCHEWAN",
+  "uwi": "100091604920W300",
+  "date": "25-DEC-1988",
+  "start_depth": 1670.0,
+  "stop_depth": 1660.0,
+  "step": -0.125,
+  "null_value": -999.25,
+  "parameters": {
+    "FD": "1000.0000",
+    "MATR": "0.0000",
+    "BS": "200.0000",
+    "BHT": "35.5000",
+    "DFD": "1525.0000",
+    "MDEN": "2710.0000",
+    "RMF": "0.2160"
+  },
+  "curve_count": 8,
+  "data_points": 29897
+}

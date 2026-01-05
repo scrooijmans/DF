@@ -1,0 +1,17 @@
+{
+  "well_name": "sample_minimal_1.2",
+  "original_well_name": "ANY ET AL A9-16-49-20",
+  "company": "ANY OIL COMPANY INC.",
+  "field": "EDAM",
+  "location": "A9-16-49-20W3M",
+  "province": "SASKATCHEWAN",
+  "uwi": "100091604920W300",
+  "date": "13-DEC-86",
+  "start_depth": 635.0,
+  "stop_depth": 400.0,
+  "step": -0.125,
+  "null_value": -999.25,
+  "parameters": {},
+  "curve_count": 8,
+  "data_points": 2
+}

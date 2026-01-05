@@ -1,0 +1,67 @@
+# Parquet Tips – DuckDB
+
+Below is a collection of tips to help when dealing with Parquet files.
+
+## [Tips for Reading Parquet Files](#tips-for-reading-parquet-files)
+
+### [Use `union_by_name` When Loading Files with Different Schemas](#use-union_by_name-when-loading-files-with-different-schemas)
+
+The `union_by_name` option can be used to unify the schema of files that have different or missing columns. For files that do not have certain columns, `NULL` values are filled in:
+
+```
+SELECT *
+FROM read_parquet('flights*.parquet', union_by_name = true);
+
+```
+
+## [Tips for Writing Parquet Files](#tips-for-writing-parquet-files)
+
+Using a [glob pattern](about:/docs/stable/data/multiple_files/overview.html#glob-syntax) upon read or a [Hive partitioning](https://duckdb.org/docs/stable/data/partitioning/hive_partitioning.html) structure are good ways to transparently handle multiple files.
+
+### [Enabling `PER_THREAD_OUTPUT`](#enabling-per_thread_output)
+
+If the final number of Parquet files is not important, writing one file per thread can significantly improve performance:
+
+```
+COPY
+    (FROM generate_series(10_000_000))
+    TO 'test.parquet'
+    (FORMAT parquet, PER_THREAD_OUTPUT);
+
+```
+
+### [Selecting a `ROW_GROUP_SIZE`](#selecting-a-row_group_size)
+
+The `ROW_GROUP_SIZE` parameter specifies the minimum number of rows in a Parquet row group, with a minimum value equal to DuckDB's vector size, 2,048, and a default of 122,880. A Parquet row group is a partition of rows, consisting of a column chunk for each column in the dataset.
+
+Compression algorithms are only applied per row group, so the larger the row group size, the more opportunities to compress the data. On the other hand, larger row group sizes mean that each thread keeps more data in memory before flushing when streaming results. Another argument for smaller row group sizes is that DuckDB can read Parquet row groups in parallel even within the same file and uses predicate pushdown to only scan the row groups whose metadata ranges match the `WHERE` clause of the query. However, there is some overhead associated with reading the metadata in each group.
+
+A good rule of thumb is to ensure that the number of row groups per file is at least as large as the number of CPU threads used to query that file. More row groups beyond the thread count would improve the speed of highly selective queries, but slow down queries that must scan the whole file like aggregations.
+
+To write a query to a Parquet file with a different row group size, run:
+
+```
+COPY
+    (FROM generate_series(100_000))
+    TO 'row-groups.parquet'
+    (FORMAT parquet, ROW_GROUP_SIZE 100_000);
+
+```
+
+### [The `ROW_GROUPS_PER_FILE` Option](#the-row_groups_per_file-option)
+
+The `ROW_GROUPS_PER_FILE` parameter creates a new Parquet file if the current one has a specified number of row groups.
+
+```
+COPY
+    (FROM generate_series(100_000))
+    TO 'output-directory'
+    (FORMAT parquet, ROW_GROUP_SIZE 20_000, ROW_GROUPS_PER_FILE 2);
+
+```
+
+> If multiple threads are active, the number of row groups in a file may slightly exceed the specified number of row groups to limit the amount of locking – similarly to the behaviour of [`FILE_SIZE_BYTES`](about:blank/sql/statements/copy#copy--to-options). However, if `PER_THREAD_OUTPUT` is set, only one thread writes to each file, and it becomes accurate again.
+
+See the [Performance Guide on “File Formats”](about:/docs/stable/guides/performance/file_formats.html#parquet-file-sizes) for more tips.
+
+© 2025 DuckDB Foundation, Amsterdam NL
