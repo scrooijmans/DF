@@ -2,22 +2,8 @@
   "permissions": {
     "allow": [
       "*",
-      "Bash(npm run check:*)",
-      "Bash(npm run build:*)",
-      "Bash(lsof:*)",
-      "Bash(xargs kill:*)",
-      "Bash(cargo build:*)",
-      "Bash(ls:*)",
-      "Bash(grep:*)",
-      "Bash(cargo test:*)",
-      "Bash(cargo check:*)",
-      "Bash(find:*)",
-      "Bash(npm run check:svelte:*)",
-      "Bash(npm run:*)",
-      "Skill(domain-name-brainstormer)",
-      "WebFetch(domain:www.namecheap.com)",
-      "WebFetch(domain:instantdomainsearch.com)",
-      "WebFetch(domain:who.is)"
-    ]
+      "Bash"
+    ],
+    "defaultMode": "bypassPermissions"
   }
 }
