@@ -1,5 +1,6 @@
 // Authentication store using Svelte 5 runes
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type { Account, Workspace, AuthResponse, SessionState, AuthStatus, WorkspaceStatus } from '$lib/types'
 
 // Auth state
@@ -22,37 +23,72 @@ const workspaceStatus = $derived((): WorkspaceStatus => {
 	return 'needs_creation'
 })
 
+// Wait for backend to be ready using event listener + polling fallback
+async function waitForBackend(): Promise<{ success: boolean; error?: string }> {
+	return new Promise((resolve) => {
+		let resolved = false
+		let unlisten: UnlistenFn | null = null
+
+		// Set up event listener for backend-ready event
+		listen<{ success: boolean; error?: string }>('backend-ready', (event) => {
+			if (!resolved) {
+				resolved = true
+				console.log('📡 Received backend-ready event:', event.payload)
+				if (unlisten) unlisten()
+				resolve(event.payload)
+			}
+		}).then((unlistenFn) => {
+			unlisten = unlistenFn
+			// Clean up listener if already resolved by polling
+			if (resolved && unlisten) unlisten()
+		})
+
+		// Also poll as fallback (in case event already fired before listener was set up)
+		const pollFallback = async () => {
+			for (let i = 0; i < 20; i++) {
+				// 20 attempts, ~5 seconds
+				if (resolved) return // Event already received
+
+				try {
+					const ready = await invoke<boolean>('is_ready')
+					if (ready && !resolved) {
+						resolved = true
+						console.log('✅ Backend ready (via polling fallback)')
+						if (unlisten) unlisten()
+						resolve({ success: true })
+						return
+					}
+				} catch {
+					// Backend might not be ready yet, continue polling
+				}
+				await new Promise((r) => setTimeout(r, 250))
+			}
+
+			// Timeout after ~5 seconds
+			if (!resolved) {
+				resolved = true
+				console.error('❌ Backend not ready after 5 seconds')
+				if (unlisten) unlisten()
+				resolve({ success: false, error: 'Backend initialization timeout' })
+			}
+		}
+		pollFallback()
+	})
+}
+
 // Initialize auth state from backend (ColaNode pattern: wait for backend readiness)
 async function initialize(): Promise<void> {
 	try {
 		authStatus = 'loading'
 		error = null
 
-		// ColaNode pattern: Wait for backend to be ready before querying session
-		// Optimized polling with exponential backoff (max 2 seconds)
-		let ready = false
-		const maxAttempts = 10
-		let attempts = 0
-		let delay = 50 // Start with 50ms
-
-		while (!ready && attempts < maxAttempts) {
-			try {
-				ready = await invoke<boolean>('is_ready')
-				if (!ready) {
-					await new Promise(resolve => setTimeout(resolve, delay))
-					delay = Math.min(delay * 1.5, 200) // Exponential backoff, max 200ms
-					attempts++
-				}
-			} catch (e) {
-				// Backend might not be ready yet, continue polling
-				await new Promise(resolve => setTimeout(resolve, delay))
-				delay = Math.min(delay * 1.5, 200)
-				attempts++
-			}
-		}
-
-		if (!ready) {
-			console.warn('⚠️ Backend not ready after polling, proceeding anyway')
+		// Wait for backend to be ready (event-based + polling fallback)
+		const backendStatus = await waitForBackend()
+		if (!backendStatus.success) {
+			console.error('❌ Backend failed to initialize:', backendStatus.error)
+			error = backendStatus.error || 'Failed to initialize application. Please restart.'
+			authStatus = 'unauthenticated'
+			return
 		}
 
 		// Now query session state (ColaNode pattern: backend validates before returning)

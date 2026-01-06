@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use tauri::State;
 use uuid::Uuid;
+use chrono::Utc;
 
 /// Active execution tracking for progress and cancellation.
 #[derive(Default)]
@@ -1160,6 +1161,20 @@ pub struct SaveOutputCurveRequest {
     pub workspace_id: String,
     pub mnemonic: Option<String>,
     pub output_data: Vec<CurveDataPoint>,
+    /// UDF ID for provenance tracking (e.g., "core:moving_average")
+    pub udf_id: Option<String>,
+    /// Input curve IDs with their versions for provenance
+    pub input_curves: Option<Vec<InputCurveRef>>,
+    /// Parameters used in the computation
+    pub parameters: Option<serde_json::Value>,
+}
+
+/// Reference to an input curve for provenance tracking
+#[derive(Debug, Clone, Deserialize)]
+pub struct InputCurveRef {
+    pub curve_id: String,
+    pub version: i64,
+    pub parquet_hash: Option<String>,
 }
 
 /// Response from saving an output curve
@@ -1312,6 +1327,54 @@ pub fn save_output_curve(
         ],
     )
     .map_err(|e| format!("Failed to insert curve: {}", e))?;
+
+    // Persist execution record for provenance tracking
+    if let Some(udf_id) = &request.udf_id {
+        use crate::compute::types::{ExecutionRecord, ExecutionStatus, InputReference};
+
+        // Build input references from request
+        let inputs: Vec<InputReference> = request
+            .input_curves
+            .as_ref()
+            .map(|curves| {
+                curves
+                    .iter()
+                    .map(|c| InputReference {
+                        curve_id: Uuid::parse_str(&c.curve_id).unwrap_or_else(|_| Uuid::nil()),
+                        version: c.version,
+                        parquet_hash: c.parquet_hash.clone().unwrap_or_default(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let record = ExecutionRecord {
+            id: Uuid::parse_str(&request.execution_id).unwrap_or_else(|_| Uuid::new_v4()),
+            udf_id: udf_id.clone(),
+            udf_version: "1.0.0".to_string(),
+            inputs,
+            parameters: request.parameters.clone().unwrap_or(serde_json::Value::Null),
+            output_curve_id: Some(curve_id),
+            output_parquet_hash: Some(hash.clone()),
+            started_at: chrono::Utc::now(),
+            completed_at: Some(chrono::Utc::now()),
+            compute_app_version: env!("CARGO_PKG_VERSION").to_string(),
+            status: ExecutionStatus::Completed,
+            error_message: None,
+        };
+
+        // Ensure execution_records table exists
+        if let Err(e) = crate::compute::data_loader::init_compute_schema(&db) {
+            log::warn!("Failed to init compute schema: {}", e);
+        }
+
+        // Save execution record
+        if let Err(e) = crate::compute::data_loader::save_execution_record(&db, &record) {
+            log::warn!("Failed to save execution record: {}", e);
+        } else {
+            info!("📜 Saved execution record {} for UDF {}", record.id, udf_id);
+        }
+    }
 
     info!(
         "💾 Saved derived curve {} ({}) with {} points",

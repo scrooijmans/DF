@@ -51,6 +51,8 @@ impl UdfProvider for CoreProvider {
             Arc::new(MovingAverageUdf::new()),
             Arc::new(LinearScaleUdf::new()),
             Arc::new(DepthResampleUdf::new()),
+            Arc::new(GapFlagUdf::new()),
+            Arc::new(StatisticsUdf::new()),
         ]
     }
 }
@@ -587,6 +589,291 @@ fn interpolate_at_depth(
         }
         (Some(val), None) | (None, Some(val)) => Some(val), // Use available value
         (None, None) => None,
+    }
+}
+
+// =============================================================================
+// Gap Flagging UDF
+// =============================================================================
+
+/// Gap flagging UDF.
+///
+/// Detects contiguous regions of null values and outputs a flag curve.
+pub struct GapFlagUdf;
+
+impl GapFlagUdf {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for GapFlagUdf {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Udf for GapFlagUdf {
+    fn id(&self) -> &str {
+        "gap_flag"
+    }
+
+    fn metadata(&self) -> UdfMetadata {
+        UdfMetadata {
+            name: "Gap Flagging".to_string(),
+            category: "Quality".to_string(),
+            description: "Detect and flag regions of missing data".to_string(),
+            documentation: Some(
+                r#"# Gap Flagging
+
+Detects contiguous regions of null/missing values in a curve and outputs a flag curve.
+
+## Parameters
+
+- **Input Curve**: Curve to check for gaps
+- **Min Gap Length**: Minimum consecutive nulls to consider a gap (default: 1)
+- **Gap Flag Value**: Value to use for flagged gaps (default: 1.0)
+
+## Algorithm
+
+Scans the curve for consecutive null values. When a region of nulls meets
+or exceeds the minimum gap length, those samples are marked with the flag value.
+
+## Output
+
+- Flag curve with same length as input
+- 0.0 for valid data regions
+- Gap flag value for gap regions
+"#
+                .to_string(),
+            ),
+            version: "1.0.0".to_string(),
+            tags: vec![
+                "gap".to_string(),
+                "null".to_string(),
+                "quality".to_string(),
+                "flag".to_string(),
+            ],
+        }
+    }
+
+    fn parameter_definitions(&self) -> Vec<Box<dyn ParameterDefinition>> {
+        vec![
+            Box::new(
+                CurveParameter::required("input_curve", "Input Curve")
+                    .with_description("Curve to check for gaps"),
+            ),
+            Box::new(
+                NumericParameter::optional("min_gap_length", "Min Gap Length", 1.0)
+                    .with_description("Minimum consecutive nulls to flag as a gap")
+                    .with_range(1.0, 1000.0),
+            ),
+            Box::new(
+                NumericParameter::optional("gap_value", "Gap Flag Value", 1.0)
+                    .with_description("Value to use for flagged gaps"),
+            ),
+        ]
+    }
+
+    fn execute(&self, context: &ExecutionContext) -> Result<UdfOutput, UdfError> {
+        let input = context.require_curve("input_curve")?;
+        let params = context.parameters();
+        let min_gap = params.get_f64("min_gap_length").unwrap_or(1.0) as usize;
+        let gap_value = params.get_f64("gap_value").unwrap_or(1.0);
+
+        let mut flags: Vec<Option<f64>> = vec![Some(0.0); input.len()];
+        let mut gap_count = 0;
+        let mut gaps_found = 0;
+        let mut total_gap_samples = 0;
+
+        // Detect gaps
+        for (i, value) in input.values.iter().enumerate() {
+            if value.is_none() {
+                gap_count += 1;
+            } else {
+                if gap_count >= min_gap {
+                    // Mark the gap region
+                    for j in (i.saturating_sub(gap_count))..i {
+                        flags[j] = Some(gap_value);
+                    }
+                    gaps_found += 1;
+                    total_gap_samples += gap_count;
+                }
+                gap_count = 0;
+            }
+        }
+
+        // Handle trailing gap
+        if gap_count >= min_gap {
+            for j in (input.len().saturating_sub(gap_count))..input.len() {
+                flags[j] = Some(gap_value);
+            }
+            gaps_found += 1;
+            total_gap_samples += gap_count;
+        }
+
+        let output = OutputCurveData {
+            mnemonic: format!("{}_GAP_FLAG", input.mnemonic),
+            curve_type: CurveDataType::Computed,
+            unit: "flag".to_string(),
+            depths: input.depths.as_ref().clone(),
+            values: flags,
+            description: Some(format!(
+                "Gap flags for {} (min_gap={})",
+                input.mnemonic, min_gap
+            )),
+        };
+
+        let mut result = UdfOutput::new(output);
+        result.add_metadata("gaps_found", serde_json::json!(gaps_found));
+        result.add_metadata("total_gap_samples", serde_json::json!(total_gap_samples));
+        result.add_metadata("min_gap_length", serde_json::json!(min_gap));
+        result.add_metadata("gap_value", serde_json::json!(gap_value));
+
+        if gaps_found > 0 {
+            result.add_warning(format!(
+                "Found {} gap region(s) totaling {} samples",
+                gaps_found, total_gap_samples
+            ));
+        }
+
+        Ok(result)
+    }
+}
+
+// =============================================================================
+// Statistics UDF
+// =============================================================================
+
+/// Statistics computation UDF.
+///
+/// Computes min, max, mean, median, and standard deviation for a curve.
+pub struct StatisticsUdf;
+
+impl StatisticsUdf {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for StatisticsUdf {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Udf for StatisticsUdf {
+    fn id(&self) -> &str {
+        "statistics"
+    }
+
+    fn metadata(&self) -> UdfMetadata {
+        UdfMetadata {
+            name: "Basic Statistics".to_string(),
+            category: "Analysis".to_string(),
+            description: "Compute min, max, mean, median, and standard deviation".to_string(),
+            documentation: Some(
+                r#"# Basic Statistics
+
+Computes basic statistical measures for a curve.
+
+## Parameters
+
+- **Input Curve**: Curve to analyze
+
+## Algorithm
+
+Calculates the following statistics from non-null values:
+- Count of valid samples
+- Minimum value
+- Maximum value
+- Mean (average)
+- Median (middle value)
+- Standard deviation
+- Variance
+- Range (max - min)
+
+## Output
+
+- Single-point curve with mean value (for visualization)
+- Full statistics available in metadata
+"#
+                .to_string(),
+            ),
+            version: "1.0.0".to_string(),
+            tags: vec![
+                "stats".to_string(),
+                "statistics".to_string(),
+                "mean".to_string(),
+                "median".to_string(),
+                "stddev".to_string(),
+            ],
+        }
+    }
+
+    fn parameter_definitions(&self) -> Vec<Box<dyn ParameterDefinition>> {
+        vec![Box::new(
+            CurveParameter::required("input_curve", "Input Curve")
+                .with_description("Curve to analyze"),
+        )]
+    }
+
+    fn execute(&self, context: &ExecutionContext) -> Result<UdfOutput, UdfError> {
+        let input = context.require_curve("input_curve")?;
+
+        // Collect valid (non-null) values
+        let valid: Vec<f64> = input.values.iter().filter_map(|v| *v).collect();
+
+        if valid.is_empty() {
+            return Err(UdfError::IncompatibleData(
+                "Curve has no valid values".to_string(),
+            ));
+        }
+
+        let n = valid.len() as f64;
+        let min = valid.iter().cloned().fold(f64::INFINITY, f64::min);
+        let max = valid.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let sum: f64 = valid.iter().sum();
+        let mean = sum / n;
+
+        // Median
+        let mut sorted = valid.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let median = if sorted.len() % 2 == 0 {
+            (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
+        } else {
+            sorted[sorted.len() / 2]
+        };
+
+        // Standard deviation (population)
+        let variance = valid.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
+        let stddev = variance.sqrt();
+
+        // Output: single-value curve with mean (for visualization)
+        // Real stats in metadata
+        let output = OutputCurveData {
+            mnemonic: format!("{}_STATS", input.mnemonic),
+            curve_type: CurveDataType::Computed,
+            unit: input.unit.clone(),
+            depths: vec![input.depths.first().copied().unwrap_or(0.0)],
+            values: vec![Some(mean)],
+            description: Some(format!("Statistics for {}", input.mnemonic)),
+        };
+
+        let null_count = input.values.iter().filter(|v| v.is_none()).count();
+
+        let mut result = UdfOutput::new(output);
+        result.add_metadata("count", serde_json::json!(valid.len()));
+        result.add_metadata("null_count", serde_json::json!(null_count));
+        result.add_metadata("min", serde_json::json!(min));
+        result.add_metadata("max", serde_json::json!(max));
+        result.add_metadata("mean", serde_json::json!(mean));
+        result.add_metadata("median", serde_json::json!(median));
+        result.add_metadata("stddev", serde_json::json!(stddev));
+        result.add_metadata("variance", serde_json::json!(variance));
+        result.add_metadata("range", serde_json::json!(max - min));
+
+        Ok(result)
     }
 }
 

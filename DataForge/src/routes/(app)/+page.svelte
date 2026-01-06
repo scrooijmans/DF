@@ -9,8 +9,10 @@
 	let isLoadingStats = $state(true)
 	let statsError = $state<string | null>(null)
 
-	// Load stats on mount
-	loadStats()
+	// Load stats when component mounts (guarded by layout's workspaceReady check)
+	$effect(() => {
+		loadStats()
+	})
 
 	async function loadStats() {
 		isLoadingStats = true

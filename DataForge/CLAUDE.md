@@ -15,6 +15,24 @@
 - `static/` - Public static files served at root
 - `src-tauri/` - Rust backend code (Tauri)
 - `crates/` - Internal Rust crates (dataforge-core, dataforge-sync, dataforge-storage)
+- `docs/decisions/` - Architecture Decision Records (ADRs)
+
+## Architecture Decision Records
+
+Key architectural decisions are documented in `docs/decisions/` using [MADR 4.0](https://adr.github.io/madr/) format.
+
+**Current ADRs:**
+- `0001-git-like-sync-model.md` - Why we use Git-like pull-based sync instead of real-time CRDT
+- `0002-content-addressed-blob-storage.md` - Why blobs are stored by SHA-256 hash
+- `0003-dual-native-gridded-storage.md` - Why curves have both native and gridded Parquet files
+- `0004-url-path-api-versioning.md` - Why we use URL path versioning (/api/v1/)
+- `0005-utoipa-openapi-generation.md` - Why we use utoipa for OpenAPI spec generation
+- `0006-refinery-sqlite-migrations.md` - Why we use Refinery for SQLite schema migrations
+
+**Creating new ADRs:**
+1. Copy `docs/decisions/0000-adr-template.md` to `docs/decisions/NNNN-title.md`
+2. Fill in sections (Context, Options, Decision, Consequences)
+3. Update this file to list the new ADR
 
 ## Context7
 

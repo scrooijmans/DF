@@ -47,6 +47,7 @@
 		SelectedCurveType,
 		CorrelationLayoutConfig,
 		WellTop,
+		CrossoverConfig,
 	} from '$lib/charts/correlation-types';
 	import {
 		createWellEntry,
@@ -56,6 +57,8 @@
 		getDefaultCurveRange,
 		getNextWellColor,
 		DEFAULT_LAYOUT,
+		DEFAULT_CROSSOVER_CONFIG,
+		DEFAULT_HEADER_CONFIG,
 	} from '$lib/charts/correlation-types';
 	import type { CurveInfoWithWell } from '$lib/types';
 	import { allWorkspaceCurves } from '$lib/stores/compute';
@@ -978,6 +981,15 @@
 		} as ChartConfiguration);
 	}
 
+	function updateCrossoverConfig(updates: Partial<CrossoverConfig>): void {
+		if (!chartConfig || chartConfig.type !== 'correlation') return;
+		const correlationConfig = chartConfig as CorrelationConfig;
+		onConfigChange({
+			...correlationConfig,
+			crossover: { ...(correlationConfig.crossover ?? DEFAULT_CROSSOVER_CONFIG), ...updates }
+		} as ChartConfiguration);
+	}
+
 	// =========================================================================
 	// Multi-Well Support for Non-Correlation Charts (CrossPlot, Scatter, Line)
 	// =========================================================================
@@ -1622,6 +1634,87 @@
 									<span>Invert Depth (Increasing Downward)</span>
 								</label>
 							</div>
+
+							<!-- Track Header Options -->
+							<div class="config-section">
+								<h4 class="section-title">Track Headers</h4>
+								<p class="hint-text">Configure what information appears in track headers</p>
+
+								<label class="checkbox-label">
+									<input
+										type="checkbox"
+										checked={correlationConfig.layout?.headerConfig?.showMnemonic ?? true}
+										onchange={(e) => updateLayoutConfig({
+											headerConfig: {
+												...DEFAULT_HEADER_CONFIG,
+												...(correlationConfig.layout?.headerConfig ?? {}),
+												showMnemonic: e.currentTarget.checked
+											}
+										})}
+									/>
+									<span>Show Curve Names</span>
+								</label>
+
+								<label class="checkbox-label">
+									<input
+										type="checkbox"
+										checked={correlationConfig.layout?.headerConfig?.showScaleRange ?? true}
+										onchange={(e) => updateLayoutConfig({
+											headerConfig: {
+												...DEFAULT_HEADER_CONFIG,
+												...(correlationConfig.layout?.headerConfig ?? {}),
+												showScaleRange: e.currentTarget.checked
+											}
+										})}
+									/>
+									<span>Show Scale Range</span>
+								</label>
+
+								<label class="checkbox-label">
+									<input
+										type="checkbox"
+										checked={correlationConfig.layout?.headerConfig?.showScaleToggle ?? true}
+										onchange={(e) => updateLayoutConfig({
+											headerConfig: {
+												...DEFAULT_HEADER_CONFIG,
+												...(correlationConfig.layout?.headerConfig ?? {}),
+												showScaleToggle: e.currentTarget.checked
+											}
+										})}
+									/>
+									<span>Show Scale Toggle Button</span>
+								</label>
+
+								<label class="checkbox-label">
+									<input
+										type="checkbox"
+										checked={correlationConfig.layout?.headerConfig?.showFillToggle ?? true}
+										onchange={(e) => updateLayoutConfig({
+											headerConfig: {
+												...DEFAULT_HEADER_CONFIG,
+												...(correlationConfig.layout?.headerConfig ?? {}),
+												showFillToggle: e.currentTarget.checked
+											}
+										})}
+									/>
+									<span>Show Fill Toggle Button</span>
+								</label>
+
+								<label class="checkbox-label">
+									<input
+										type="checkbox"
+										checked={correlationConfig.layout?.headerConfig?.interactive ?? true}
+										onchange={(e) => updateLayoutConfig({
+											headerConfig: {
+												...DEFAULT_HEADER_CONFIG,
+												...(correlationConfig.layout?.headerConfig ?? {}),
+												interactive: e.currentTarget.checked
+											}
+										})}
+									/>
+									<span>Enable Right-Click Menu</span>
+								</label>
+							</div>
 						{:else}
 							<div class="config-section">
 								<h4 class="section-title">Axis Configuration</h4>
@@ -2104,6 +2197,99 @@
 										})}
 									/>
 								</div>
+
+								{#if Object.keys(correlationConfig.layout?.trackWidths ?? {}).length > 0}
+									<div class="custom-widths-info">
+										<span class="info-text">
+											{Object.keys(correlationConfig.layout?.trackWidths ?? {}).length} tracks have custom widths
+										</span>
+										<button
+											class="reset-btn"
+											onclick={() => updateLayoutConfig({ trackWidths: {} })}
+											title="Reset all track widths to default"
+										>
+											Reset All
+										</button>
+									</div>
+								{/if}
+							</div>
+
+							<!-- Crossover Shading Section -->
+							<div class="config-section">
+								<h4 class="section-title">NPHI/RHOB Crossover Shading</h4>
+								<p class="hint-text">Highlight gas-bearing zones where NPHI crosses RHOB</p>
+
+								<label class="checkbox-label">
+									<input
+										type="checkbox"
+										checked={correlationConfig.crossover?.enabled ?? false}
+										onchange={(e) => updateCrossoverConfig({ enabled: e.currentTarget.checked })}
+									/>
+									<span>Enable Crossover Detection</span>
+								</label>
+
+								{#if correlationConfig.crossover?.enabled}
+									<div class="crossover-settings">
+										<div class="field-row">
+											<div class="field-group half">
+												<label class="field-label" for="crossover-curve1">Curve 1</label>
+												<select
+													id="crossover-curve1"
+													class="field-select"
+													value={correlationConfig.crossover?.curve1Id ?? ''}
+													onchange={(e) => updateCrossoverConfig({ curve1Id: e.currentTarget.value })}
+												>
+													<option value="">Select curve...</option>
+													{#each correlationConfig.selectedCurveTypes ?? [] as curveType (curveType.mnemonic)}
+														<option value={curveType.mnemonic}>{curveType.mnemonic}</option>
+													{/each}
+												</select>
+											</div>
+											<div class="field-group half">
+												<label class="field-label" for="crossover-curve2">Curve 2</label>
+												<select
+													id="crossover-curve2"
+													class="field-select"
+													value={correlationConfig.crossover?.curve2Id ?? ''}
+													onchange={(e) => updateCrossoverConfig({ curve2Id: e.currentTarget.value })}
+												>
+													<option value="">Select curve...</option>
+													{#each correlationConfig.selectedCurveTypes ?? [] as curveType (curveType.mnemonic)}
+														<option value={curveType.mnemonic}>{curveType.mnemonic}</option>
+													{/each}
+												</select>
+											</div>
+										</div>
+
+										<div class="field-row">
+											<div class="field-group">
+												<label class="field-label" for="crossover-color">Fill Color</label>
+												<input
+													id="crossover-color"
+													type="color"
+													class="field-color"
+													value={correlationConfig.crossover?.fillColor ?? '#ffff00'}
+													onchange={(e) => updateCrossoverConfig({ fillColor: e.currentTarget.value })}
+												/>
+											</div>
+											<div class="field-group">
+												<label class="field-label" for="crossover-opacity">Opacity</label>
+												<input
+													id="crossover-opacity"
+													type="range"
+													class="field-range"
+													min="0"
+													max="100"
+													value={(correlationConfig.crossover?.fillOpacity ?? 0.3) * 100}
+													onchange={(e) => updateCrossoverConfig({
+														fillOpacity: parseInt(e.currentTarget.value) / 100
+													})}
+												/>
+												<span class="range-value">{Math.round((correlationConfig.crossover?.fillOpacity ?? 0.3) * 100)}%</span>
+											</div>
+										</div>
+									</div>
+								{/if}
 							</div>
 						{:else}
 							<div class="config-section">
@@ -2766,5 +2952,80 @@
 
 	.remove-top-btn:hover {
 		background: hsl(var(--destructive) / 0.2);
+	}
+
+	/* Custom Track Widths Reset */
+	.custom-widths-info {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-top: 8px;
+		padding: 8px 10px;
+		background: hsl(var(--accent));
+		border-radius: 4px;
+	}
+
+	.custom-widths-info .info-text {
+		font-size: 11px;
+		color: hsl(var(--muted-foreground));
+	}
+
+	.reset-btn {
+		padding: 4px 8px;
+		font-size: 11px;
+		font-weight: 500;
+		background: hsl(var(--background));
+		border: 1px solid hsl(var(--border));
+		border-radius: 4px;
+		cursor: pointer;
+		color: hsl(var(--foreground));
+		transition: background 0.15s ease;
+	}
+
+	.reset-btn:hover {
+		background: hsl(var(--accent));
+	}
+
+	/* Crossover Settings */
+	.crossover-settings {
+		margin-top: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.field-row {
+		display: flex;
+		gap: 12px;
+		align-items: flex-end;
+	}
+
+	.field-group.half {
+		flex: 1;
+	}
+
+	.field-color {
+		width: 40px;
+		height: 32px;
+		padding: 2px;
+		border: 1px solid hsl(var(--border));
+		border-radius: 4px;
+		cursor: pointer;
+		background: hsl(var(--background));
+	}
+
+	.field-range {
+		flex: 1;
+		height: 6px;
+		cursor: pointer;
+		accent-color: hsl(var(--primary));
+	}
+
+	.range-value {
+		font-size: 11px;
+		color: hsl(var(--muted-foreground));
+		min-width: 32px;
+		text-align: right;
 	}
 </style>

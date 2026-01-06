@@ -9,7 +9,7 @@ mod trajectory_commands;
 
 use state::AppState;
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tracing::info;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -170,11 +170,21 @@ pub fn run() {
                         let mut state = state.lock().expect("Failed to lock app state");
                         let _ = state.clear_session();
                     }
+
+                    // Emit backend-ready event for frontend to know initialization succeeded
+                    info!("📡 Emitting backend-ready event (success)");
+                    let _ = app.emit("backend-ready", serde_json::json!({
+                        "success": true
+                    }));
                 }
                 Err(e) => {
                     tracing::error!("❌ Failed to initialize app state: {}", e);
-                    // Still show window even if initialization fails
-                    // Frontend will handle the error gracefully
+                    // Emit backend-ready event with error for frontend to handle
+                    info!("📡 Emitting backend-ready event (error)");
+                    let _ = app.emit("backend-ready", serde_json::json!({
+                        "success": false,
+                        "error": e.to_string()
+                    }));
                 }
             }
 

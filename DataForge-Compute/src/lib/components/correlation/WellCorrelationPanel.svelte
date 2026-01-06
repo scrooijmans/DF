@@ -9,7 +9,7 @@
 	 *
 	 * Layout: DepthTrack | WellColumn | WellColumn | ...
 	 */
-	import type { CorrelationConfig, CorrelationCurveData } from '$lib/charts/correlation-types';
+	import type { CorrelationConfig, CorrelationCurveData, CrossoverConfig } from '$lib/charts/correlation-types';
 	import WellColumn from './WellColumn.svelte';
 	import DepthTrack from './DepthTrack.svelte';
 	import { chartManager } from '$lib/charts/chart-manager';
@@ -142,6 +142,7 @@
 							wellTops={config.wellTops.filter(t => !t.wellId || t.wellId === well.wellId)}
 							{cursorDepth}
 							trackWidth={config.layout?.trackWidth}
+							crossover={config.crossover}
 						/>
 					</div>
 				{/each}

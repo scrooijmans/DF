@@ -564,7 +564,7 @@ CREATE TABLE IF NOT EXISTS markers (
 
 CREATE INDEX IF NOT EXISTS idx_markers_marker_set ON markers(marker_set_id);
 CREATE INDEX IF NOT EXISTS idx_markers_well ON markers(well_id) WHERE well_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_markers_well_name ON markers(well_name) WHERE well_name IS NOT NULL;
+-- Note: idx_markers_well_name is created in migrations after well_name column exists
 CREATE INDEX IF NOT EXISTS idx_markers_name ON markers(name);
 CREATE INDEX IF NOT EXISTS idx_markers_depth ON markers(measured_depth);
 
@@ -968,6 +968,24 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 			);
 			CREATE INDEX IF NOT EXISTS idx_unified_views_well ON unified_views(well_id);
 			"#,
+		)?;
+	}
+
+	// Migration 4: Add well_name column to markers table if missing
+	// This column stores the original well name from CSV for unmapped markers
+	let markers_has_well_name: bool = conn
+		.prepare("SELECT COUNT(*) FROM pragma_table_info('markers') WHERE name = 'well_name'")?
+		.query_row([], |row| row.get::<_, i64>(0))
+		.map(|count| count > 0)
+		.unwrap_or(false);
+
+	if !markers_has_well_name {
+		info!("Running migration: adding well_name column to markers table");
+		conn.execute("ALTER TABLE markers ADD COLUMN well_name TEXT", [])?;
+		// Create the index after column exists
+		conn.execute(
+			"CREATE INDEX IF NOT EXISTS idx_markers_well_name ON markers(well_name) WHERE well_name IS NOT NULL",
+			[],
 		)?;
 	}
 

@@ -27,6 +27,7 @@
 	import { CanvasRenderer } from 'echarts/renderers';
 	import type { ChartDataFrame, ChartType, SeriesConfig } from '$lib/charts/types';
 	import { segmentedCurveToSeriesData } from '$lib/charts/types';
+	import { LOG_SCALE_TICK_VALUES } from '$lib/charts/correlation-types';
 	import type { SegmentedCurveData, MultiWellCurveData } from '$lib/types';
 	import { chartManager, type ChartRegistrationOptions } from '$lib/charts/chart-manager';
 	import { lttbDownsample, calculateSampleCount } from '$lib/charts/downsampling';
@@ -165,6 +166,40 @@
 		popover: '#ffffff',
 		popoverForeground: '#111827'
 	};
+
+	/**
+	 * Format log scale axis label (avoid scientific notation)
+	 * Shows nice values like "0.2", "1", "10", "100", "1k", "2k" etc.
+	 */
+	function formatLogScaleLabel(value: number): string {
+		if (value >= 1000) {
+			const k = value / 1000;
+			return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`;
+		}
+		if (value >= 100) return `${Math.round(value)}`;
+		if (value >= 10) return `${Math.round(value)}`;
+		if (value >= 1) return `${value}`;
+		return value.toPrecision(1);
+	}
+
+	/**
+	 * Get log scale tick values filtered to the given range
+	 * Returns tick values that fall within [min, max]
+	 */
+	function getLogScaleTickValues(min: number | undefined, max: number | undefined): number[] {
+		const effectiveMin = min ?? 0.1;
+		const effectiveMax = max ?? 10000;
+		return LOG_SCALE_TICK_VALUES.filter((v) => v >= effectiveMin && v <= effectiveMax);
+	}
+
+	/**
+	 * Check if a log scale tick value is a major decade (1, 10, 100, 1000)
+	 */
+	function isLogScaleMajorTick(value: number): boolean {
+		// Major ticks are powers of 10: 0.1, 1, 10, 100, 1000
+		const log10 = Math.log10(value);
+		return Math.abs(log10 - Math.round(log10)) < 0.001;
+	}
 
 	/**
 	 * Format large numbers in compact notation (1k, 1M, etc.)
@@ -835,9 +870,13 @@
 		};
 
 		// Value axis config (X-axis in well log mode)
+		// Enhanced log scale support with decade gridlines
+		const logScaleTicks = xAxisLogScale ? getLogScaleTickValues(xAxisMin, xAxisMax) : [];
+
 		const valueAxisConfig = {
 			...axisStyle,
 			type: xAxisLogScale ? ('log' as const) : ('value' as const),
+			logBase: xAxisLogScale ? 10 : undefined,
 			name: segmentedData.mnemonic + (segmentedData.unit ? ` (${segmentedData.unit})` : ''),
 			nameGap: xAxisPosition === 'top' ? 25 : 50,
 			nameLocation: 'middle' as const,
@@ -845,12 +884,42 @@
 			max: xAxisMax !== undefined ? xAxisMax : ('dataMax' as const),
 			// Position at top for well log correlation view
 			position: xAxisPosition === 'top' ? ('top' as const) : ('bottom' as const),
-			// Format axis labels with compact notation (1k, 1M)
+			// Format axis labels - use log formatter for log scale
 			axisLabel: {
 				color: themeColorsLocal.mutedForeground,
 				fontSize: 10,
-				formatter: formatCompactNumber
+				formatter: xAxisLogScale ? formatLogScaleLabel : formatCompactNumber,
+				// For log scale, show labels at our custom tick values
+				showMinLabel: true,
+				showMaxLabel: true
 			},
+			// Log scale: minor ticks between decades
+			minorTick: xAxisLogScale
+				? {
+						show: true,
+						splitNumber: 5,
+						lineStyle: { color: themeColorsLocal.border, opacity: 0.3 }
+					}
+				: undefined,
+			// Log scale: gridlines with major/minor distinction
+			splitLine: xAxisLogScale
+				? {
+						show: true,
+						lineStyle: {
+							color: themeColorsLocal.border,
+							opacity: 0.5,
+							// Major gridlines are slightly more prominent
+							width: 1
+						}
+					}
+				: { show: true, lineStyle: { color: themeColorsLocal.border, opacity: 0.5 } },
+			// Minor gridlines for log scale (between major gridlines)
+			minorSplitLine: xAxisLogScale
+				? {
+						show: true,
+						lineStyle: { color: themeColorsLocal.border, opacity: 0.2, type: 'dashed' }
+					}
+				: undefined,
 			// Crosshair axis label showing cursor position
 			axisPointer: {
 				show: showCursor,
@@ -861,7 +930,8 @@
 					color: '#ffffff',
 					fontSize: 11,
 					padding: [4, 6],
-					formatter: (params: { value: number }) => formatCompactNumber(params.value)
+					formatter: (params: { value: number }) =>
+						xAxisLogScale ? formatLogScaleLabel(params.value) : formatCompactNumber(params.value)
 				}
 			}
 		};
@@ -1291,9 +1361,13 @@
 		};
 
 		// Value axis config (yField is the curve measurement, X-axis in well log mode)
+		// Enhanced log scale support with decade gridlines
+		const legacyLogScaleTicks = xAxisLogScale ? getLogScaleTickValues(xAxisMin, xAxisMax) : [];
+
 		const valueAxisConfig = {
 			...axisStyle,
 			type: xAxisLogScale ? ('log' as const) : ('value' as const),
+			logBase: xAxisLogScale ? 10 : undefined,
 			name: yField.config?.displayName ?? yField.name,
 			nameGap: xAxisPosition === 'top' ? 25 : 50,
 			nameLocation: 'middle' as const,
@@ -1301,6 +1375,38 @@
 			max: xAxisMax !== undefined ? xAxisMax : ('dataMax' as const),
 			// Position at top for well log correlation view
 			position: xAxisPosition === 'top' ? ('top' as const) : ('bottom' as const),
+			// Format axis labels - use log formatter for log scale
+			axisLabel: xAxisLogScale
+				? {
+						color: themeColors.mutedForeground,
+						fontSize: 10,
+						formatter: formatLogScaleLabel,
+						showMinLabel: true,
+						showMaxLabel: true
+					}
+				: undefined,
+			// Log scale: minor ticks between decades
+			minorTick: xAxisLogScale
+				? {
+						show: true,
+						splitNumber: 5,
+						lineStyle: { color: themeColors.border, opacity: 0.3 }
+					}
+				: undefined,
+			// Log scale: gridlines with major/minor distinction
+			splitLine: xAxisLogScale
+				? {
+						show: true,
+						lineStyle: { color: themeColors.border, opacity: 0.5, width: 1 }
+					}
+				: undefined,
+			// Minor gridlines for log scale
+			minorSplitLine: xAxisLogScale
+				? {
+						show: true,
+						lineStyle: { color: themeColors.border, opacity: 0.2, type: 'dashed' }
+					}
+				: undefined,
 			// Crosshair axis label showing cursor position
 			axisPointer: {
 				show: showCursor,
@@ -1311,7 +1417,8 @@
 					color: '#ffffff',
 					fontSize: 11,
 					padding: [4, 6],
-					formatter: (params: { value: number }) => formatCompactNumber(params.value)
+					formatter: (params: { value: number }) =>
+						xAxisLogScale ? formatLogScaleLabel(params.value) : formatCompactNumber(params.value)
 				}
 			}
 		};

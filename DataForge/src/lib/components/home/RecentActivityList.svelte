@@ -22,8 +22,10 @@
 	let isLoading = $state(true)
 	let error = $state<string | null>(null)
 
-	// Load on mount
-	loadActivity()
+	// Load when component mounts (guarded by layout's workspaceReady check)
+	$effect(() => {
+		loadActivity()
+	})
 
 	async function loadActivity() {
 		isLoading = true

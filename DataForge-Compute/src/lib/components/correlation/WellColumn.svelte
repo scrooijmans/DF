@@ -10,10 +10,14 @@
 	import type {
 		WellCorrelationEntry,
 		CorrelationCurveData,
-		WellTop
+		WellTop,
+		FillDirection,
+		CrossoverConfig
 	} from '$lib/charts/correlation-types';
+	import { TRACK_WIDTH_CONSTRAINTS } from '$lib/charts/correlation-types';
 	import CurveTrack from './CurveTrack.svelte';
 	import WellTopOverlay from './WellTopOverlay.svelte';
+	import TrackResizeHandle from './TrackResizeHandle.svelte';
 
 	interface Props {
 		/** Well entry with track configuration */
@@ -32,22 +36,60 @@
 		cursorDepth: number | null;
 		/** Fixed width per track in pixels (optional, defaults to percentage-based) */
 		trackWidth?: number;
+		/** Per-track width overrides (trackId -> width in pixels) */
+		trackWidths?: Record<string, number>;
+		/** Enable resize handles between tracks */
+		enableResize?: boolean;
+		/** Callback when track width changes */
+		onTrackWidthChange?: (trackId: string, newWidth: number) => void;
+		/** Callback when scale toggle is clicked */
+		onScaleToggle?: (trackId: string, logScale: boolean) => void;
+		/** Callback when fill toggle is clicked */
+		onFillToggle?: (trackId: string, direction: FillDirection) => void;
+		/** Callback when context menu is requested */
+		onContextMenu?: (trackId: string, event: MouseEvent) => void;
+		/** Crossover configuration (for NPHI/RHOB shading) */
+		crossover?: CrossoverConfig;
 	}
 
-	let { well, curveData, depthRange, height, linkGroup, wellTops, cursorDepth, trackWidth }: Props = $props();
+	let {
+		well,
+		curveData,
+		depthRange,
+		height,
+		linkGroup,
+		wellTops,
+		cursorDepth,
+		trackWidth,
+		trackWidths = {},
+		enableResize = true,
+		onTrackWidthChange,
+		onScaleToggle,
+		onFillToggle,
+		onContextMenu,
+		crossover
+	}: Props = $props();
 
-	/** Calculate track width - use fixed pixel width if provided, else percentage-based */
-	let computedTrackWidth = $derived.by(() => {
-		// If trackWidth prop is provided, use fixed pixel width
-		if (trackWidth !== undefined) {
-			return `${trackWidth}px`;
+	/**
+	 * Get width for a specific track
+	 * Priority: trackWidths[trackId] > trackWidth > default
+	 */
+	function getTrackWidth(trackId: string): number {
+		if (trackWidths[trackId] !== undefined) {
+			return trackWidths[trackId];
 		}
-		// Otherwise, calculate percentage-based width
-		const trackCount = well.tracks.length;
-		if (trackCount === 0) return '100%';
-		if (trackCount === 1) return '100%';
-		return `${100 / trackCount}%`;
-	});
+		if (trackWidth !== undefined) {
+			return trackWidth;
+		}
+		return TRACK_WIDTH_CONSTRAINTS.defaultWidth;
+	}
+
+	/**
+	 * Handle track width change from resize handle
+	 */
+	function handleTrackWidthChange(trackId: string, newWidth: number): void {
+		onTrackWidthChange?.(trackId, newWidth);
+	}
 
 	/** Header height for calculations */
 	const headerHeight = 36;
@@ -69,18 +111,33 @@
 			</div>
 		{:else}
 			<div class="tracks-row">
-				{#each well.tracks as track (track.id)}
-					{@const trackData = curveData.get(track.id)}
-					<div class="track-wrapper" style="width: {computedTrackWidth}; min-width: 80px">
+				{#each well.tracks as track, index (track.id)}
+					<div
+						class="track-wrapper"
+						style="width: {getTrackWidth(track.id)}px; min-width: {TRACK_WIDTH_CONSTRAINTS.minWidth}px"
+					>
 						<CurveTrack
 							{track}
-							data={trackData ?? null}
+							{curveData}
+							wellId={well.wellId}
 							{depthRange}
 							height={trackAreaHeight}
 							{linkGroup}
 							{cursorDepth}
+							{onScaleToggle}
+							{onFillToggle}
+							{onContextMenu}
+							{crossover}
 						/>
 					</div>
+
+					{#if enableResize && index < well.tracks.length - 1}
+						<TrackResizeHandle
+							trackId={track.id}
+							currentWidth={getTrackWidth(track.id)}
+							onWidthChange={handleTrackWidthChange}
+						/>
+					{/if}
 				{/each}
 			</div>
 

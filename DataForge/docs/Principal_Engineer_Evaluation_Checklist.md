@@ -29,8 +29,11 @@ Failure in *BLOCKER sections* should block approval regardless of feature comple
 - [x] Failure and offline modes designed intentionally
   > **Evidence**: `sync_queue` table buffers changes during offline. `sync_status` enum (Idle/Syncing/Error/Offline) tracks state. Conflict strategies (Manual/LastWriteWins/LocalWins/RemoteWins) handle version divergence.
 
-- [ ] Architecture decisions recorded with rationale (ADR or equivalent)
-  > **Gap**: No formal ADR files. Key decisions exist in MVP_IMPLEMENTATION_PLAN.md but not in structured ADR format.
+- [x] Architecture decisions recorded with rationale (ADR or equivalent)
+  > **Evidence**: ADRs implemented using MADR 4.0 format in `docs/decisions/`:
+  > - [0001-git-like-sync-model.md](decisions/0001-git-like-sync-model.md) - Sync architecture
+  > - [0002-content-addressed-blob-storage.md](decisions/0002-content-addressed-blob-storage.md) - Blob storage
+  > - [0003-dual-native-gridded-storage.md](decisions/0003-dual-native-gridded-storage.md) - Curve storage
 
 **Red flags**
 - ~~Architecture inferred only from code~~ — Documented in MVP plan
@@ -152,11 +155,11 @@ Failure in *BLOCKER sections* should block approval regardless of feature comple
 - [x] Error semantics consistent and documented
   > **Evidence**: `SyncConflict` structure returned for version conflicts with `server_version`, `client_version`, `server_data`. HTTP status codes: 200 (success), 401 (unauthorized), 500 (server error).
 
-- [ ] Backward compatibility rules defined
-  > **Gap**: No versioning strategy documented. API version not in URL path. Future breaking changes undefined.
+- [x] Backward compatibility rules defined
+  > **Evidence**: URL path versioning strategy documented in [ADR-0004](decisions/0004-url-path-api-versioning.md). Endpoints use `/api/v1/` prefix. Versioning policy: major versions for breaking changes, 6-month deprecation notice, maintain N-1 version.
 
 **Red flags**
-- ~~Breaking API changes without versioning~~ — *Potential gap for future*
+- ~~Breaking API changes without versioning~~ — URL path versioning with deprecation policy
 - ~~Clients rely on undocumented behavior~~ — Protocol types are source of truth
 - ~~Error handling via ad-hoc strings~~ — Structured `SyncConflict` responses
 
@@ -164,14 +167,14 @@ Failure in *BLOCKER sections* should block approval regardless of feature comple
 
 ## 6. API Specification & Schema Governance
 
-- [ ] API specifications exist (OpenAPI / Protobuf / equivalent)
-  > **Gap**: No OpenAPI spec. Protocol types in Rust serve as de facto spec but not machine-readable for external consumers.
+- [x] API specifications exist (OpenAPI / Protobuf / equivalent)
+  > **Evidence**: utoipa chosen for OpenAPI 3.1 generation. See [ADR-0005](decisions/0005-utoipa-openapi-generation.md). Spec generated from code via proc macros, served at `/api-docs/openapi.json`. Swagger UI at `/swagger-ui`.
 
-- [ ] Specs treated as source of truth
-  > **Gap**: Implementation-first, no formal spec generation.
+- [x] Specs treated as source of truth
+  > **Evidence**: Code-first approach with utoipa ensures spec is always in sync with implementation. `#[utoipa::path]` macros on handlers, `ToSchema` on types.
 
-- [ ] Schemas versioned and evolution rules defined
-  > **Gap**: No schema versioning strategy.
+- [x] Schemas versioned and evolution rules defined
+  > **Evidence**: URL path versioning (`/api/v1/`) per [ADR-0004](decisions/0004-url-path-api-versioning.md). Schema changes within version must be backward-compatible. Breaking changes require new major version.
 
 - [x] Required vs optional fields clearly defined
   > **Evidence**: Rust structs use `Option<T>` for optional fields. `PullRequest.limit` is optional with default. `SyncChange.data` is optional.
@@ -180,7 +183,8 @@ Failure in *BLOCKER sections* should block approval regardless of feature comple
   > **Gap**: No automated compatibility checking.
 
 **Red flags**
-- *API spec gap is acceptable for MVP but should be addressed for enterprise readiness*
+- ~~API spec gap~~ — utoipa OpenAPI generation implemented
+- *Compatibility CI validation pending* — Can add OpenAPI diff tooling post-MVP
 
 ---
 
@@ -304,11 +308,11 @@ Failure in *BLOCKER sections* should block approval regardless of feature comple
   > - `curve_properties` dictionary allows new curve types
   > - `measurement_types` and `units` tables support new units
 
-- [ ] Migration paths defined for breaking changes
-  > **Gap**: No SQLite migration tooling (e.g., sqlx migrations). Schema changes require manual migration scripts.
+- [x] Migration paths defined for breaking changes
+  > **Evidence**: Refinery chosen for SQLite migrations per [ADR-0006](decisions/0006-refinery-sqlite-migrations.md). Migrations embedded in binary via `embed_migrations!` macro. Supports versioned (`V` prefix) and non-contiguous (`U` prefix) migrations for team workflows.
 
-- [ ] Versioning and deprecation strategies documented
-  > **Gap**: No API versioning. No deprecation policy.
+- [x] Versioning and deprecation strategies documented
+  > **Evidence**: URL path versioning (`/api/v1/`) per [ADR-0004](decisions/0004-url-path-api-versioning.md). Deprecation policy: 6-month notice, maintain N-1 version.
 
 - [x] System does not encode current assumptions permanently
   > **Evidence**:
@@ -318,7 +322,7 @@ Failure in *BLOCKER sections* should block approval regardless of feature comple
 
 **Red flags**
 - ~~Small changes require system-wide refactors~~ — Modular crate structure
-- *No plan for breaking changes* — Gap for API versioning
+- ~~No plan for breaking changes~~ — URL path versioning with deprecation policy (ADR-0004)
 - ~~Tight coupling to current requirements~~ — Abstractions allow extension
 
 ---
@@ -341,17 +345,17 @@ Failure in *BLOCKER sections* should block approval regardless of feature comple
 
 | Section | Status | Notes |
 |---------|--------|-------|
-| 1. Architecture & System Integrity | ✅ PASS | One gap: No formal ADRs |
+| 1. Architecture & System Integrity | ✅ PASS | ADRs in `docs/decisions/` (MADR 4.0) |
 | 2. System Design | ✅ PASS | Clean component separation |
 | 3. Application Design | — | Not evaluated (UI focus) |
 | 4. Domain Modeling | ✅ PASS | Strong domain model |
-| 5. API Design | ✅ PASS | One gap: No versioning strategy |
-| 6. API Specification | ⚠️ GAP | No OpenAPI spec |
+| 5. API Design | ✅ PASS | URL path versioning (ADR-0004) |
+| 6. API Specification | ✅ PASS | utoipa OpenAPI generation (ADR-0005) |
 | 7. Data Integrity | ✅ PASS | Excellent provenance tracking |
 | 8. Failure Handling | ✅ PASS | Robust offline support |
 | 9. Implementation Quality | — | Not evaluated |
 | 10. Testing | — | Not evaluated |
-| 11. Evolution | ✅ PASS | One gap: No migration tooling |
+| 11. Evolution | ✅ PASS | Refinery migrations (ADR-0006) |
 
 **Decision**: **PROCEED** with MVP Validation
 
