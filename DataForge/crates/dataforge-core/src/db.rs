@@ -1,7 +1,7 @@
 //! SQLite database schema and operations
 
 use rusqlite::{Connection, Result as SqliteResult};
-use tracing::info;
+use tracing::{error, info, warn};
 
 /// SQL schema for DataForge database
 pub const SCHEMA: &str = r#"
@@ -992,6 +992,15 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 	Ok(())
 }
 
+/// Validate database integrity using SQLite's built-in integrity check
+///
+/// Returns Ok(true) if database is healthy, Ok(false) if corrupted,
+/// or an error if the check itself fails.
+pub fn validate_db_integrity(conn: &Connection) -> SqliteResult<bool> {
+	let result: String = conn.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+	Ok(result == "ok")
+}
+
 /// Open or create a database at the given path
 pub fn open_db(path: &std::path::Path) -> SqliteResult<Connection> {
 	let conn = Connection::open(path)?;
@@ -1001,6 +1010,25 @@ pub fn open_db(path: &std::path::Path) -> SqliteResult<Connection> {
 
 	// WAL mode for better concurrency
 	conn.execute_batch("PRAGMA journal_mode = WAL;")?;
+
+	// Check database integrity before proceeding
+	match validate_db_integrity(&conn) {
+		Ok(true) => {
+			info!("Database integrity check passed");
+		}
+		Ok(false) => {
+			error!("Database integrity check FAILED - database may be corrupted");
+			// Return an error so the caller can handle recovery
+			return Err(rusqlite::Error::SqliteFailure(
+				rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT),
+				Some("Database integrity check failed".to_string()),
+			));
+		}
+		Err(e) => {
+			warn!("Could not perform integrity check: {}", e);
+			// Continue anyway - this might be a new database
+		}
+	}
 
 	// Initialize schema
 	init_db(&conn)?;

@@ -1,9 +1,33 @@
 //! Sync client for communicating with DataForge server
 
 use reqwest::Client;
+use std::time::Duration;
 use tracing::{debug, info, warn};
 
 use crate::protocol::*;
+
+/// Retry configuration following PowerSync patterns
+pub struct RetryConfig {
+	/// Maximum number of retry attempts
+	pub max_attempts: usize,
+	/// Initial delay between retries
+	pub initial_delay: Duration,
+	/// Maximum delay between retries
+	pub max_delay: Duration,
+	/// Multiplier for exponential backoff
+	pub backoff_multiplier: f64,
+}
+
+impl Default for RetryConfig {
+	fn default() -> Self {
+		Self {
+			max_attempts: 5,
+			initial_delay: Duration::from_secs(1),
+			max_delay: Duration::from_secs(60),
+			backoff_multiplier: 2.0,
+		}
+	}
+}
 
 /// Error type for sync operations
 #[derive(Debug, thiserror::Error)]
@@ -22,6 +46,36 @@ pub enum SyncError {
 
 	#[error("Serialization error: {0}")]
 	Serialization(#[from] serde_json::Error),
+
+	#[error("Max retries exceeded after {attempts} attempts: {last_error}")]
+	MaxRetriesExceeded { attempts: usize, last_error: String },
+}
+
+impl SyncError {
+	/// Check if this error is transient and should be retried
+	///
+	/// Following PowerSync patterns:
+	/// - Network errors are transient
+	/// - 5xx server errors are transient
+	/// - 429 (rate limit) is transient
+	/// - Auth errors and conflicts are fatal (don't retry)
+	pub fn is_transient(&self) -> bool {
+		match self {
+			// Network issues are always transient
+			SyncError::Network(_) => true,
+
+			// Server errors - 5xx and 429 are transient
+			SyncError::Server { status, .. } => {
+				*status >= 500 || *status == 429
+			}
+
+			// These are fatal - don't retry
+			SyncError::Unauthorized => false,
+			SyncError::Conflict(_) => false,
+			SyncError::Serialization(_) => false,
+			SyncError::MaxRetriesExceeded { .. } => false,
+		}
+	}
 }
 
 /// Client for syncing with DataForge server
@@ -29,6 +83,7 @@ pub struct SyncClient {
 	client: Client,
 	base_url: String,
 	auth_token: Option<String>,
+	retry_config: RetryConfig,
 }
 
 impl SyncClient {
@@ -38,6 +93,7 @@ impl SyncClient {
 			client: Client::new(),
 			base_url: base_url.trim_end_matches('/').to_string(),
 			auth_token: None,
+			retry_config: RetryConfig::default(),
 		}
 	}
 
@@ -45,6 +101,20 @@ impl SyncClient {
 	pub fn with_auth(mut self, token: &str) -> Self {
 		self.auth_token = Some(token.to_string());
 		self
+	}
+
+	/// Set custom retry configuration
+	pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
+		self.retry_config = config;
+		self
+	}
+
+	/// Calculate delay for a given attempt (exponential backoff)
+	fn calculate_delay(&self, attempt: usize) -> Duration {
+		let delay_secs = self.retry_config.initial_delay.as_secs_f64()
+			* self.retry_config.backoff_multiplier.powi(attempt as i32);
+		let capped_delay = Duration::from_secs_f64(delay_secs).min(self.retry_config.max_delay);
+		capped_delay
 	}
 
 	/// Push local changes to server
@@ -205,5 +275,151 @@ impl SyncClient {
 		let response = self.client.get(&url).send().await?;
 
 		Ok(response.status().is_success())
+	}
+
+	// ============================================================
+	// RETRY-ENABLED METHODS (PowerSync pattern)
+	// ============================================================
+
+	/// Push with automatic retry for transient errors
+	///
+	/// Uses exponential backoff. Fatal errors (auth, conflicts) fail immediately.
+	pub async fn push_with_retry(&self, request: PushRequest) -> Result<PushResponse, SyncError> {
+		let mut last_error = String::new();
+
+		for attempt in 0..self.retry_config.max_attempts {
+			match self.push(request.clone()).await {
+				Ok(response) => return Ok(response),
+				Err(e) => {
+					if !e.is_transient() {
+						// Fatal error - don't retry
+						return Err(e);
+					}
+
+					last_error = e.to_string();
+					let delay = self.calculate_delay(attempt);
+
+					warn!(
+						attempt = attempt + 1,
+						max_attempts = self.retry_config.max_attempts,
+						delay_secs = delay.as_secs_f64(),
+						error = %e,
+						"Push failed with transient error, retrying"
+					);
+
+					tokio::time::sleep(delay).await;
+				}
+			}
+		}
+
+		Err(SyncError::MaxRetriesExceeded {
+			attempts: self.retry_config.max_attempts,
+			last_error,
+		})
+	}
+
+	/// Pull with automatic retry for transient errors
+	///
+	/// Uses exponential backoff. Fatal errors (auth) fail immediately.
+	pub async fn pull_with_retry(&self, request: PullRequest) -> Result<PullResponse, SyncError> {
+		let mut last_error = String::new();
+
+		for attempt in 0..self.retry_config.max_attempts {
+			match self.pull(request.clone()).await {
+				Ok(response) => return Ok(response),
+				Err(e) => {
+					if !e.is_transient() {
+						// Fatal error - don't retry
+						return Err(e);
+					}
+
+					last_error = e.to_string();
+					let delay = self.calculate_delay(attempt);
+
+					warn!(
+						attempt = attempt + 1,
+						max_attempts = self.retry_config.max_attempts,
+						delay_secs = delay.as_secs_f64(),
+						error = %e,
+						"Pull failed with transient error, retrying"
+					);
+
+					tokio::time::sleep(delay).await;
+				}
+			}
+		}
+
+		Err(SyncError::MaxRetriesExceeded {
+			attempts: self.retry_config.max_attempts,
+			last_error,
+		})
+	}
+
+	/// Download blob with automatic retry
+	pub async fn download_blob_with_retry(&self, url: &str) -> Result<Vec<u8>, SyncError> {
+		let mut last_error = String::new();
+
+		for attempt in 0..self.retry_config.max_attempts {
+			match self.download_blob(url).await {
+				Ok(data) => return Ok(data),
+				Err(e) => {
+					if !e.is_transient() {
+						return Err(e);
+					}
+
+					last_error = e.to_string();
+					let delay = self.calculate_delay(attempt);
+
+					warn!(
+						attempt = attempt + 1,
+						url = url,
+						delay_secs = delay.as_secs_f64(),
+						error = %e,
+						"Blob download failed, retrying"
+					);
+
+					tokio::time::sleep(delay).await;
+				}
+			}
+		}
+
+		Err(SyncError::MaxRetriesExceeded {
+			attempts: self.retry_config.max_attempts,
+			last_error,
+		})
+	}
+
+	/// Upload blob with automatic retry
+	pub async fn upload_blob_with_retry(&self, url: &str, data: Vec<u8>) -> Result<(), SyncError> {
+		let mut last_error = String::new();
+
+		for attempt in 0..self.retry_config.max_attempts {
+			match self.upload_blob(url, data.clone()).await {
+				Ok(()) => return Ok(()),
+				Err(e) => {
+					if !e.is_transient() {
+						return Err(e);
+					}
+
+					last_error = e.to_string();
+					let delay = self.calculate_delay(attempt);
+
+					warn!(
+						attempt = attempt + 1,
+						url = url,
+						delay_secs = delay.as_secs_f64(),
+						error = %e,
+						"Blob upload failed, retrying"
+					);
+
+					tokio::time::sleep(delay).await;
+				}
+			}
+		}
+
+		Err(SyncError::MaxRetriesExceeded {
+			attempts: self.retry_config.max_attempts,
+			last_error,
+		})
 	}
 }

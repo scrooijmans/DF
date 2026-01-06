@@ -680,3 +680,133 @@ pub fn update_account(
 pub fn greet(name: &str) -> String {
     format!("Hello, {}! Welcome to DataForge.", name)
 }
+
+// ============================================================
+// DIAGNOSTICS (For production troubleshooting)
+// ============================================================
+
+/// Diagnostic information for troubleshooting
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiagnosticInfo {
+    pub app_version: String,
+    pub data_dir: Option<String>,
+    pub db_path: Option<String>,
+    pub db_size_bytes: Option<u64>,
+    pub is_authenticated: bool,
+    pub workspace_count: usize,
+    pub current_workspace_id: Option<String>,
+    pub platform: String,
+    pub os_version: String,
+}
+
+/// Crash recovery information returned to frontend
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CrashRecoveryResponse {
+    pub crash_detected: bool,
+    pub crashed_session_start: Option<String>,
+    pub recovery_performed: bool,
+}
+
+/// Get crash recovery information (check if app crashed previously)
+#[tauri::command]
+pub fn get_crash_recovery_info(state: State<'_, Mutex<AppState>>) -> Result<CrashRecoveryResponse, String> {
+    let state = state.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    Ok(CrashRecoveryResponse {
+        crash_detected: state.crash_recovery.crash_detected,
+        crashed_session_start: state.crash_recovery.crashed_session_start.clone(),
+        recovery_performed: state.crash_recovery.recovery_performed,
+    })
+}
+
+// ============================================================
+// AUTO-UPDATE CHECK
+// ============================================================
+
+/// Update information
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateInfo {
+    /// Whether an update is available
+    pub update_available: bool,
+    /// Current app version
+    pub current_version: String,
+    /// Latest available version (if check succeeded)
+    pub latest_version: Option<String>,
+    /// Download URL for the update
+    pub download_url: Option<String>,
+    /// Release notes (if available)
+    pub release_notes: Option<String>,
+    /// Error message if check failed
+    pub error: Option<String>,
+}
+
+/// Check for available updates
+///
+/// Contacts the update server to check for newer versions.
+/// Returns immediately with current version if check fails (offline-friendly).
+#[tauri::command]
+pub async fn check_for_updates() -> UpdateInfo {
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+
+    // For now, return a stub that indicates no update server is configured
+    // In production, this would hit an actual update API
+    //
+    // Example implementation when ready:
+    // let response = reqwest::get("https://api.dataforge.app/v1/version").await;
+    // match response {
+    //     Ok(resp) => { parse and compare versions }
+    //     Err(e) => { return error info }
+    // }
+
+    UpdateInfo {
+        update_available: false,
+        current_version,
+        latest_version: None,
+        download_url: None,
+        release_notes: None,
+        error: Some("Update server not configured".to_string()),
+    }
+}
+
+/// Get current app version
+#[tauri::command]
+pub fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// Export diagnostic information for troubleshooting
+#[tauri::command]
+pub fn export_diagnostics(state: State<'_, Mutex<AppState>>) -> Result<DiagnosticInfo, String> {
+    let state = state.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    let db_path = state.data_dir.as_ref().map(|d| d.join("dataforge.db"));
+    let db_size_bytes = db_path.as_ref().and_then(|p| std::fs::metadata(p).ok()).map(|m| m.len());
+
+    let workspace_count = if let Some(db) = state.db.as_ref() {
+        if let Some(ref token) = state.session.token {
+            if let Ok(auth_result) = auth::validate_session(db, token) {
+                auth::get_account_workspaces(db, auth_result.account.id)
+                    .map(|w| w.len())
+                    .unwrap_or(0)
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    } else {
+        0
+    };
+
+    Ok(DiagnosticInfo {
+        app_version: env!("CARGO_PKG_VERSION").to_string(),
+        data_dir: state.data_dir.as_ref().map(|p| p.to_string_lossy().to_string()),
+        db_path: db_path.map(|p| p.to_string_lossy().to_string()),
+        db_size_bytes,
+        is_authenticated: state.session.token.is_some(),
+        workspace_count,
+        current_workspace_id: state.session.current_workspace_id.map(|id| id.to_string()),
+        platform: std::env::consts::OS.to_string(),
+        os_version: std::env::consts::ARCH.to_string(),
+    })
+}

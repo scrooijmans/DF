@@ -70,6 +70,18 @@
 			</p>
 		</div>
 
+		<!-- First-run welcome message (only in register mode) -->
+		{#if mode === 'register'}
+			<div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
+				<h3 class="text-sm font-semibold text-blue-800 dark:text-blue-200">Welcome to DataForge!</h3>
+				<ul class="mt-2 space-y-1 text-xs text-blue-700 dark:text-blue-300">
+					<li>• Import LAS files and manage well data</li>
+					<li>• Works offline - sync when you're ready</li>
+					<li>• Create workspaces to organize projects</li>
+				</ul>
+			</div>
+		{/if}
+
 		<!-- Backend Loading Indicator -->
 		{#if !backendReady}
 			<div class="mb-4 flex items-center justify-center gap-2 text-muted-foreground">

@@ -123,9 +123,20 @@ impl StorageBackend for FilesystemBackend {
 
 	async fn get_presigned_url(&self, hash: &str, _expires_in: Duration) -> Result<String> {
 		// Filesystem doesn't support presigned URLs in the traditional sense
-		// Return a file:// URL or indicate this should be served via an API endpoint
+		// Return a file:// URL for local access
 		let path = self.root.join(hash_to_path(&self.prefix, hash));
-		Ok(format!("file://{}", path.display()))
+
+		// Windows requires file:/// with forward slashes (file:///C:/path/to/file)
+		// Unix uses file:// with the path starting at root (file:///path/to/file)
+		#[cfg(windows)]
+		{
+			let path_str = path.to_string_lossy().replace('\\', "/");
+			Ok(format!("file:///{}", path_str))
+		}
+		#[cfg(not(windows))]
+		{
+			Ok(format!("file://{}", path.display()))
+		}
 	}
 
 	fn get_path(&self, hash: &str) -> String {

@@ -64,6 +64,44 @@
 	<!-- Main Content -->
 	<div class="flex-1 overflow-auto p-6">
 		<div class="mx-auto max-w-4xl space-y-6">
+			<!-- First-run / Empty workspace guidance -->
+			{#if !isLoadingStats && stats && stats.well_count === 0}
+				<section class="rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:border-blue-900 dark:from-blue-950 dark:to-indigo-950">
+					<div class="flex items-start gap-4">
+						<div class="rounded-full bg-blue-100 p-3 dark:bg-blue-900">
+							<svg class="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+						</div>
+						<div class="flex-1">
+							<h2 class="text-lg font-semibold text-blue-900 dark:text-blue-100">
+								Get started with your workspace
+							</h2>
+							<p class="mt-1 text-sm text-blue-700 dark:text-blue-300">
+								Your workspace is empty. Import some data to get started!
+							</p>
+							<div class="mt-4 flex flex-wrap gap-3">
+								<a
+									href="/ingest"
+									class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+								>
+									<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+									</svg>
+									Import LAS Files
+								</a>
+								<a
+									href="/ingest/trajectory"
+									class="inline-flex items-center gap-2 rounded-md border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 dark:border-blue-700 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800"
+								>
+									Import Trajectories
+								</a>
+							</div>
+						</div>
+					</div>
+				</section>
+			{/if}
+
 			<!-- Stats Grid -->
 			<section>
 				<h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

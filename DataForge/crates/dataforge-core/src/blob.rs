@@ -92,6 +92,58 @@ impl BlobStore {
 		Ok(data)
 	}
 
+	/// Retrieve data by hash, returning None if blob is missing
+	///
+	/// Use this method when missing blobs are expected (e.g., data not yet synced).
+	/// The UI can show "data unavailable" instead of crashing.
+	pub fn get_optional(&self, hash: &str) -> Result<Option<Vec<u8>>> {
+		let path = self.hash_to_path(hash);
+
+		if !path.exists() {
+			debug!(hash = %hash, "Blob not found (optional get)");
+			return Ok(None);
+		}
+
+		let mut file = fs::File::open(&path)?;
+		let mut data = Vec::new();
+		file.read_to_end(&mut data)?;
+
+		// Verify integrity
+		let actual_hash = Self::compute_hash(&data);
+		if actual_hash != hash {
+			// Log but don't fail - data is corrupted but caller can handle it
+			tracing::warn!(
+				expected = %hash,
+				actual = %actual_hash,
+				"Blob hash mismatch - data may be corrupted"
+			);
+			return Ok(None);
+		}
+
+		Ok(Some(data))
+	}
+
+	/// Check blob health (exists and hash matches)
+	///
+	/// Returns:
+	/// - Ok(true) if blob exists and is valid
+	/// - Ok(false) if blob is missing or corrupted
+	/// - Err only for IO errors
+	pub fn verify(&self, hash: &str) -> Result<bool> {
+		let path = self.hash_to_path(hash);
+
+		if !path.exists() {
+			return Ok(false);
+		}
+
+		let mut file = fs::File::open(&path)?;
+		let mut data = Vec::new();
+		file.read_to_end(&mut data)?;
+
+		let actual_hash = Self::compute_hash(&data);
+		Ok(actual_hash == hash)
+	}
+
 	/// Check if a blob exists
 	pub fn exists(&self, hash: &str) -> bool {
 		self.hash_to_path(hash).exists()

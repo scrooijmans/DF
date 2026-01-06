@@ -14,6 +14,8 @@ use tracing::info;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize logging - console output for development
+    // For production diagnostics, use the export_diagnostics command
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
@@ -25,6 +27,10 @@ pub fn run() {
             // Utilities
             commands::greet,
             commands::parse_las_file,
+            commands::export_diagnostics,
+            commands::get_crash_recovery_info,
+            commands::check_for_updates,
+            commands::get_app_version,
             // Authentication (ColaNode pattern)
             commands::is_ready,
             commands::register,
@@ -124,7 +130,13 @@ pub fn run() {
             info!("🚀 Initializing DataForge with data directory: {:?}", data_dir);
 
             // Get the main window (it's hidden initially from tauri.conf.json)
-            let window = app.get_webview_window("main").unwrap();
+            let window = match app.get_webview_window("main") {
+                Some(w) => w,
+                None => {
+                    tracing::error!("❌ Failed to get main window - window not found");
+                    return Err("Main window not found".into());
+                }
+            };
 
             // Initialize state synchronously during setup (ColaNode pattern: backend-first)
             let state = app.state::<Mutex<AppState>>();
@@ -197,7 +209,10 @@ pub fn run() {
             // Show window after initialization is complete (ColaNode pattern)
             // This provides a better UX by avoiding blank window flash
             info!("👁️ Showing main window");
-            window.show().expect("Failed to show main window");
+            if let Err(e) = window.show() {
+                tracing::error!("❌ Failed to show main window: {}", e);
+                // Continue anyway - window might still work
+            }
 
             Ok(())
         })
