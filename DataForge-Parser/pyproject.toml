@@ -1,0 +1,79 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dataforge-parser"
+version = "0.1.0"
+description = "PDF document parser for End-of-Well reports with OSDU schema mapping"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "DataForge Team" }
+]
+keywords = ["pdf", "parsing", "osdu", "well-data", "subsurface"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "docling>=2.0.0",
+    "click>=8.0.0",
+    "pydantic>=2.0.0",
+    "jsonschema>=4.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+ocr = [
+    "unstructured>=0.10.0",
+    "pytesseract>=0.3.0",
+]
+llm = [
+    "anthropic>=0.18.0",
+    "ollama>=0.1.0",
+]
+
+[project.scripts]
+dataforge-parser = "dataforge_parser.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/scrooijmans/DF"
+Repository = "https://github.com/scrooijmans/DF"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dataforge_parser"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/dataforge_parser"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=dataforge_parser"

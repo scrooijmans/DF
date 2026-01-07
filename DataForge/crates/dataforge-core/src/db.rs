@@ -319,7 +319,9 @@ CREATE TABLE IF NOT EXISTS log_runs (
     imported_at TEXT NOT NULL DEFAULT (datetime('now')),
     -- Versioning
     version INTEGER NOT NULL DEFAULT 1,
-    deleted_at TEXT
+    deleted_at TEXT,
+    -- OSDU schema versioning
+    schema_version TEXT DEFAULT '1.0.0'
 );
 
 CREATE INDEX IF NOT EXISTS idx_log_runs_well ON log_runs(well_id);
@@ -495,7 +497,9 @@ CREATE TABLE IF NOT EXISTS survey_runs (
     imported_at TEXT NOT NULL DEFAULT (datetime('now')),
     -- Versioning
     version INTEGER NOT NULL DEFAULT 1,
-    deleted_at TEXT
+    deleted_at TEXT,
+    -- OSDU schema versioning
+    schema_version TEXT DEFAULT '1.0.0'
 );
 
 CREATE INDEX IF NOT EXISTS idx_survey_runs_well ON survey_runs(well_id);
@@ -575,7 +579,9 @@ CREATE TABLE IF NOT EXISTS marker_sets (
     imported_at TEXT NOT NULL DEFAULT (datetime('now')),
     -- Versioning
     version INTEGER NOT NULL DEFAULT 1,
-    deleted_at TEXT
+    deleted_at TEXT,
+    -- OSDU schema versioning
+    schema_version TEXT DEFAULT '1.0.0'
 );
 
 CREATE INDEX IF NOT EXISTS idx_marker_sets_well ON marker_sets(well_id);
@@ -670,6 +676,8 @@ CREATE TABLE IF NOT EXISTS surfaces (
     -- Versioning
     version INTEGER NOT NULL DEFAULT 1,
     deleted_at TEXT,
+    -- OSDU schema versioning
+    schema_version TEXT DEFAULT '1.0.0',
     UNIQUE(workspace_id, name, deleted_at)
 );
 
@@ -718,7 +726,9 @@ CREATE TABLE IF NOT EXISTS checkshot_runs (
     imported_at TEXT NOT NULL DEFAULT (datetime('now')),
     -- Versioning
     version INTEGER NOT NULL DEFAULT 1,
-    deleted_at TEXT
+    deleted_at TEXT,
+    -- OSDU schema versioning
+    schema_version TEXT DEFAULT '1.0.0'
 );
 
 CREATE INDEX IF NOT EXISTS idx_checkshot_runs_well ON checkshot_runs(well_id);
@@ -1043,6 +1053,26 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 			"CREATE INDEX IF NOT EXISTS idx_markers_well_name ON markers(well_name) WHERE well_name IS NOT NULL",
 			[],
 		)?;
+	}
+
+	// Migration 5: Add schema_version column to work product tables if missing
+	// OSDU-inspired versioning for schema evolution tracking
+	let work_product_tables = ["log_runs", "survey_runs", "marker_sets", "surfaces", "checkshot_runs"];
+
+	for table in work_product_tables {
+		let has_schema_version: bool = conn
+			.prepare(&format!("SELECT COUNT(*) FROM pragma_table_info('{}') WHERE name = 'schema_version'", table))?
+			.query_row([], |row| row.get::<_, i64>(0))
+			.map(|count| count > 0)
+			.unwrap_or(false);
+
+		if !has_schema_version {
+			info!("Running migration: adding schema_version column to {} table", table);
+			conn.execute(
+				&format!("ALTER TABLE {} ADD COLUMN schema_version TEXT DEFAULT '1.0.0'", table),
+				[],
+			)?;
+		}
 	}
 
 	Ok(())
