@@ -1,10 +1,13 @@
 @import 'tailwindcss';
 
 /**
- * DataForge Compute Theme
+ * DataForge Compute Professional Technical Theme
  *
- * Matches the DataForge application's light theme with predominantly
- * white backgrounds and clean typography.
+ * Design direction: Grafana/DataDog inspired
+ * - High information density
+ * - Monospace fonts for data
+ * - Blue technical accent
+ * - Clear visual hierarchy
  */
 
 @theme inline {
@@ -24,6 +27,9 @@
 	--color-accent-foreground: hsl(var(--accent-foreground));
 	--color-destructive: hsl(var(--destructive));
 	--color-destructive-foreground: hsl(var(--destructive-foreground));
+	--color-success: hsl(var(--success));
+	--color-warning: hsl(var(--warning));
+	--color-info: hsl(var(--info));
 	--color-border: hsl(var(--border));
 	--color-input: hsl(var(--input));
 	--color-ring: hsl(var(--ring));
@@ -34,50 +40,87 @@
 }
 
 :root {
-	/* Light theme (default) - matches DataForge */
-	--background: 0 0% 100%;
-	--foreground: 240 10% 3.9%;
+	/* === PROFESSIONAL TECHNICAL PALETTE === */
+
+	/* Background hierarchy (subtle blue-gray tones) */
+	--background: 220 14% 98%;
+	--foreground: 220 13% 13%;
+
+	/* Surface colors */
 	--card: 0 0% 100%;
-	--card-foreground: 240 10% 3.9%;
+	--card-foreground: 220 13% 13%;
 	--popover: 0 0% 100%;
-	--popover-foreground: 240 10% 3.9%;
-	--primary: 240 5.9% 10%;
-	--primary-foreground: 0 0% 98%;
-	--secondary: 240 4.8% 95.9%;
-	--secondary-foreground: 240 5.9% 10%;
-	--muted: 240 4.8% 95.9%;
-	--muted-foreground: 240 3.8% 46.1%;
-	--accent: 240 4.8% 95.9%;
-	--accent-foreground: 240 5.9% 10%;
-	--destructive: 0 84.2% 60.2%;
-	--destructive-foreground: 0 0% 98%;
-	--border: 240 5.9% 90%;
-	--input: 240 5.9% 90%;
-	--ring: 240 5.9% 10%;
-	--radius: 0.5rem;
+	--popover-foreground: 220 13% 13%;
+
+	/* Primary (Technical Blue) */
+	--primary: 217 91% 50%;
+	--primary-foreground: 0 0% 100%;
+
+	/* Secondary (Muted surfaces) */
+	--secondary: 220 14% 94%;
+	--secondary-foreground: 220 13% 26%;
+
+	/* Muted (Reduced emphasis) */
+	--muted: 220 14% 94%;
+	--muted-foreground: 220 9% 46%;
+
+	/* Accent (Highlight/selection) */
+	--accent: 217 91% 95%;
+	--accent-foreground: 217 91% 40%;
+
+	/* Borders (subtle definition) */
+	--border: 220 13% 88%;
+	--input: 220 13% 88%;
+	--ring: 217 91% 50%;
+
+	/* Status colors */
+	--destructive: 0 72% 51%;
+	--destructive-foreground: 0 0% 100%;
+	--success: 142 71% 45%;
+	--warning: 38 92% 50%;
+	--info: 217 91% 50%;
+
+	/* Radius */
+	--radius: 0.375rem;
 }
 
-/* Dark theme - optional, applied via .dark class */
 .dark {
-	--background: 240 10% 3.9%;
-	--foreground: 0 0% 98%;
-	--card: 240 10% 3.9%;
-	--card-foreground: 0 0% 98%;
-	--popover: 240 10% 3.9%;
-	--popover-foreground: 0 0% 98%;
-	--primary: 0 0% 98%;
-	--primary-foreground: 240 5.9% 10%;
-	--secondary: 240 3.7% 15.9%;
-	--secondary-foreground: 0 0% 98%;
-	--muted: 240 3.7% 15.9%;
-	--muted-foreground: 240 5% 64.9%;
-	--accent: 240 3.7% 15.9%;
-	--accent-foreground: 0 0% 98%;
-	--destructive: 0 62.8% 30.6%;
+	/* === DARK MODE - DATA FOCUSED === */
+
+	/* Background hierarchy (deep blue-black) */
+	--background: 222 20% 9%;
+	--foreground: 210 20% 92%;
+
+	/* Surface colors */
+	--card: 222 20% 12%;
+	--card-foreground: 210 20% 92%;
+	--popover: 222 20% 12%;
+	--popover-foreground: 210 20% 92%;
+
+	/* Primary (Brighter blue for dark) */
+	--primary: 217 91% 60%;
+	--primary-foreground: 222 20% 9%;
+
+	/* Secondary */
+	--secondary: 222 20% 16%;
+	--secondary-foreground: 210 20% 80%;
+
+	/* Muted */
+	--muted: 222 20% 16%;
+	--muted-foreground: 215 14% 55%;
+
+	/* Accent */
+	--accent: 217 91% 20%;
+	--accent-foreground: 217 91% 70%;
+
+	/* Borders */
+	--border: 222 20% 20%;
+	--input: 222 20% 20%;
+	--ring: 217 91% 60%;
+
+	/* Status colors (adjusted for dark) */
+	--destructive: 0 62% 40%;
 	--destructive-foreground: 0 0% 98%;
-	--border: 240 3.7% 15.9%;
-	--input: 240 3.7% 15.9%;
-	--ring: 240 4.9% 83.9%;
 }
 
 @layer base {
@@ -88,12 +131,152 @@
 	body {
 		background-color: hsl(var(--background));
 		color: hsl(var(--foreground));
+		/* Technical font stack */
 		font-family:
-			system-ui,
+			'Inter',
+			'SF Pro Text',
 			-apple-system,
 			BlinkMacSystemFont,
 			'Segoe UI',
-			Roboto,
+			system-ui,
 			sans-serif;
+		font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		font-size: 13px;
+		line-height: 1.5;
+	}
+
+	/* Monospace for data display */
+	.font-mono,
+	code,
+	pre,
+	[data-numeric],
+	.tabular-nums {
+		font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
+		font-feature-settings: 'ss01', 'ss02', 'zero', 'tnum';
+	}
+
+	/* Headings */
+	h1, h2, h3, h4, h5, h6 {
+		font-weight: 600;
+		letter-spacing: -0.01em;
+	}
+
+	/* Focus visible styles */
+	:focus-visible {
+		outline: 2px solid hsl(var(--ring));
+		outline-offset: 2px;
+	}
+
+	/* Selection */
+	::selection {
+		background-color: hsl(var(--accent));
+		color: hsl(var(--accent-foreground));
+	}
+}
+
+@layer components {
+	/* Button base styles */
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		padding: 0.375rem 0.75rem;
+		border-radius: var(--radius);
+		transition: all 150ms ease;
+	}
+
+	.btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Card component */
+	.card {
+		background-color: hsl(var(--card));
+		color: hsl(var(--card-foreground));
+		border: 1px solid hsl(var(--border));
+		border-radius: var(--radius);
+	}
+
+	/* Input styles */
+	.input {
+		background-color: hsl(var(--background));
+		border: 1px solid hsl(var(--input));
+		border-radius: var(--radius);
+		padding: 0.375rem 0.75rem;
+		font-size: 0.8125rem;
+		transition: border-color 150ms ease;
+	}
+
+	.input:focus {
+		border-color: hsl(var(--ring));
+		outline: none;
+	}
+
+	/* Badge/Tag styles */
+	.badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.5rem;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		border-radius: calc(var(--radius) - 2px);
+	}
+
+	/* Scrollbar styling for webkit browsers */
+	::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: hsl(var(--secondary));
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: hsl(var(--muted-foreground) / 0.3);
+		border-radius: 4px;
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: hsl(var(--muted-foreground) / 0.5);
+	}
+}
+
+@layer utilities {
+	/* Data display utilities */
+	.data-cell {
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.8125rem;
+		font-feature-settings: 'tnum', 'zero';
+	}
+
+	/* Subtle dividers */
+	.divider {
+		border-color: hsl(var(--border));
+	}
+
+	/* Status indicators */
+	.status-success {
+		color: hsl(var(--success));
+	}
+
+	.status-warning {
+		color: hsl(var(--warning));
+	}
+
+	.status-error {
+		color: hsl(var(--destructive));
+	}
+
+	.status-info {
+		color: hsl(var(--info));
 	}
 }

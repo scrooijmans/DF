@@ -15,6 +15,7 @@
     "code-documentation@claude-code-workflows": true,
     "code-refactoring@claude-code-workflows": true,
     "code-review-ai@claude-code-workflows": true,
-    "database-design@claude-code-workflows": true
+    "database-design@claude-code-workflows": true,
+    "frontend-design@claude-plugins-official": true
   }
 }

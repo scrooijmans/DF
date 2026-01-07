@@ -69,19 +69,19 @@ export const STYLE_CONSTANTS = {
 		ROUNDED_SM: 'rounded-sm'
 	},
 
-	// Colors
+	// Colors (using theme tokens)
 	COLORS: {
 		TEXT: {
-			PRIMARY: 'text-gray-900',
-			SECONDARY: 'text-gray-600',
-			MUTED: 'text-gray-400',
-			DISABLED: 'text-gray-300'
+			PRIMARY: 'text-foreground',
+			SECONDARY: 'text-muted-foreground',
+			MUTED: 'text-muted-foreground/70',
+			DISABLED: 'text-muted-foreground/50'
 		},
 		BG: {
-			DEFAULT: 'bg-white',
-			HOVER: 'hover:bg-gray-50',
-			SELECTED: 'bg-blue-50',
-			SELECTED_BORDER: 'border-blue-400'
+			DEFAULT: 'bg-background',
+			HOVER: 'hover:bg-accent',
+			SELECTED: 'bg-accent',
+			SELECTED_BORDER: 'border-primary'
 		}
 	}
 } as const
@@ -104,7 +104,7 @@ export function getComponentBaseClasses(): string {
  * Helper function to get list item classes
  */
 export function getListItemClasses(isSelected: boolean = false): string {
-	const base = `${STYLE_CONSTANTS.FONT_SIZE.DEFAULT} ${STYLE_CONSTANTS.SPACING.PADDING.MIN} cursor-pointer border-b border-gray-100 last:border-b-0`
-	const hover = isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+	const base = `${STYLE_CONSTANTS.FONT_SIZE.DEFAULT} ${STYLE_CONSTANTS.SPACING.PADDING.MIN} cursor-pointer border-b border-border last:border-b-0`
+	const hover = isSelected ? 'bg-accent' : 'hover:bg-accent/50'
 	return `${base} ${hover}`
 }
