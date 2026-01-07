@@ -3,9 +3,9 @@
 	import { invoke } from '@tauri-apps/api/core'
 	import { ingestStore } from '$lib/stores/ingest.svelte'
 	import type { WellSummary, MainCurveType } from '$lib/types/ingest'
-	import type { TrajectoryColumnType, SurveyType } from '$lib/types/trajectory'
+	import type { TrajectoryColumnType, SurveyType, AzimuthReference } from '$lib/types/trajectory'
 	import { getColumnDisplayName, getSurveyTypeDisplayName } from '$lib/types/trajectory'
-	import type { MarkerColumnType, InterpretationType } from '$lib/types/markers'
+	import type { MarkerColumnType, InterpretationType, ConfidenceLevel } from '$lib/types/markers'
 	import { getMarkerColumnDisplayName, getInterpretationTypeDisplayName } from '$lib/types/markers'
 	import type { SurfaceColumnType, SurfaceType, ZPositiveDirection } from '$lib/types/surfaces'
 	import { getSurfaceColumnDisplayName, getSurfaceTypeDisplayName, SURFACE_TYPE_OPTIONS, XY_UNIT_OPTIONS, Z_UNIT_OPTIONS, Z_DIRECTION_OPTIONS, COMMON_CRS_OPTIONS } from '$lib/types/surfaces'
@@ -667,7 +667,7 @@
 							</div>
 						</div>
 
-						<!-- Survey Settings -->
+						<!-- Survey Settings (OSDU WellboreTrajectory fields) -->
 						<div class="mt-4">
 							<h4 class="mb-2 text-sm font-medium">Survey Settings</h4>
 							<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -685,6 +685,22 @@
 										{#each SURVEY_TYPES as st}
 											<option value={st.value}>{st.label}</option>
 										{/each}
+									</select>
+								</div>
+								<div>
+									<label class="text-muted-foreground mb-1 block text-xs">Azimuth Reference</label>
+									<select
+										value={file.trajectoryMetadata.azimuthReference || ''}
+										onchange={(e) =>
+											ingestStore.updateTrajectorySurveyMetadata(file.id, {
+												azimuthReference: (e.target as HTMLSelectElement).value as AzimuthReference || undefined
+											})}
+										class="border-border bg-background focus:border-primary w-full rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+									>
+										<option value="">Not specified</option>
+										<option value="true_north">True North</option>
+										<option value="grid_north">Grid North</option>
+										<option value="magnetic_north">Magnetic North</option>
 									</select>
 								</div>
 								<div>
@@ -900,6 +916,34 @@
 										placeholder="Optional"
 										class="border-border bg-background focus:border-primary w-full rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
 									/>
+								</div>
+								<div>
+									<label class="text-muted-foreground mb-1 block text-xs">Interpretation Date</label>
+									<input
+										type="date"
+										value={file.markerMetadata.interpretationDate || ''}
+										onchange={(e) =>
+											ingestStore.updateMarkerSetMetadata(file.id, {
+												interpretationDate: (e.target as HTMLInputElement).value || undefined
+											})}
+										class="border-border bg-background focus:border-primary w-full rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+									/>
+								</div>
+								<div>
+									<label class="text-muted-foreground mb-1 block text-xs">Confidence Level</label>
+									<select
+										value={file.markerMetadata.confidenceLevel || ''}
+										onchange={(e) =>
+											ingestStore.updateMarkerSetMetadata(file.id, {
+												confidenceLevel: (e.target as HTMLSelectElement).value as ConfidenceLevel || undefined
+											})}
+										class="border-border bg-background focus:border-primary w-full rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+									>
+										<option value="">Not specified</option>
+										<option value="High">High</option>
+										<option value="Medium">Medium</option>
+										<option value="Low">Low</option>
+									</select>
 								</div>
 							</div>
 						</div>

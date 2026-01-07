@@ -120,10 +120,11 @@ SELECT
 FROM workspace_members;
 
 -- ============================================================
--- WELLS
+-- WELLS (OSDU: master-data--Well)
 -- ============================================================
 -- Wells belong directly to workspaces; created_by references workspace_members
 -- Each well has a canonical depth grid for consistent curve sampling
+-- OSDU alignment: Well represents the surface location and header info
 
 CREATE TABLE IF NOT EXISTS wells (
     id TEXT PRIMARY KEY,
@@ -135,6 +136,15 @@ CREATE TABLE IF NOT EXISTS wells (
     location TEXT,
     x REAL,
     y REAL,
+    -- OSDU master-data--Well fields
+    operator TEXT,                         -- OSDU: FacilityOperator
+    spud_date TEXT,                        -- OSDU: SpudDate (ISO 8601)
+    surface_x REAL,                        -- OSDU: SurfaceLocation X coordinate
+    surface_y REAL,                        -- OSDU: SurfaceLocation Y coordinate
+    surface_crs TEXT,                      -- OSDU: SpatialLocation CRS (e.g., "EPSG:32631")
+    country TEXT,                          -- OSDU: Country
+    state_province TEXT,                   -- OSDU: State/Province
+    county TEXT,                           -- OSDU: County
     -- Depth grid configuration (canonical sampling for this well)
     depth_unit TEXT NOT NULL DEFAULT 'ft',
     depth_step REAL NOT NULL DEFAULT 0.5,
@@ -151,6 +161,34 @@ CREATE TABLE IF NOT EXISTS wells (
 
 CREATE INDEX IF NOT EXISTS idx_wells_workspace_id ON wells(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_wells_version ON wells(version);
+
+-- ============================================================
+-- WELLBORES (OSDU: master-data--Wellbore)
+-- ============================================================
+-- Wellbores represent the actual drilled path(s) within a well
+-- A well can have multiple wellbores (sidetracks, re-entries)
+-- OSDU alignment: Separates Well (surface) from Wellbore (drilled path)
+
+CREATE TABLE IF NOT EXISTS wellbores (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    well_id TEXT NOT NULL REFERENCES wells(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    wellbore_number INTEGER DEFAULT 1,     -- OSDU: SequenceNumber
+    parent_wellbore_id TEXT REFERENCES wellbores(id),  -- For sidetracks
+    kickoff_md REAL,                       -- Sidetrack kickoff depth
+    status TEXT,                           -- 'Active', 'Plugged', 'Suspended'
+    total_md REAL,                         -- OSDU: TotalMeasuredDepth
+    total_tvd REAL,                        -- OSDU: TotalVerticalDepth
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    version INTEGER NOT NULL DEFAULT 1,
+    deleted_at TEXT,
+    UNIQUE(well_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wellbores_workspace ON wellbores(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_wellbores_well ON wellbores(well_id);
 
 -- ============================================================
 -- REFERENCE DATA: LOG TYPES
@@ -243,14 +281,16 @@ CREATE TABLE IF NOT EXISTS curve_mnemonics (
 CREATE INDEX IF NOT EXISTS idx_curve_mnemonics_property ON curve_mnemonics(property_id);
 
 -- ============================================================
--- LOG RUNS (one per LAS upload event)
+-- LOG RUNS (OSDU: work-product-component--WellLog)
 -- ============================================================
 -- Each LAS file import creates a log_run record
 -- Preserves original file metadata and provenance
+-- OSDU alignment: Maps to WellLog Work Product Component
 
 CREATE TABLE IF NOT EXISTS log_runs (
     id TEXT PRIMARY KEY,
     well_id TEXT NOT NULL REFERENCES wells(id) ON DELETE CASCADE,
+    wellbore_id TEXT REFERENCES wellbores(id),  -- OSDU: WellboreID
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     -- Source file info (immutable)
     source_filename TEXT NOT NULL,
@@ -260,9 +300,12 @@ CREATE TABLE IF NOT EXISTS log_runs (
     log_type_id TEXT REFERENCES log_types(id),
     acquisition_type_id TEXT REFERENCES acquisition_types(id),
     run_number INTEGER,
+    -- OSDU WellLog fields
+    log_activity TEXT,                     -- OSDU: LogActivity ('Main Pass', 'Repeat', 'Calibration')
+    activity_type TEXT,                    -- OSDU: ActivityType ('Wireline', 'LWD', 'MWD')
     -- Service info
-    service_company TEXT,
-    tool_name TEXT,
+    service_company TEXT,                  -- OSDU: ServiceCompanyID
+    tool_name TEXT,                        -- OSDU: LoggingService
     logging_date TEXT,
     -- Original depth info (before resampling)
     original_top_depth REAL,
@@ -280,6 +323,7 @@ CREATE TABLE IF NOT EXISTS log_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_log_runs_well ON log_runs(well_id);
+CREATE INDEX IF NOT EXISTS idx_log_runs_wellbore ON log_runs(wellbore_id);
 CREATE INDEX IF NOT EXISTS idx_log_runs_workspace ON log_runs(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_log_runs_source_hash ON log_runs(source_file_hash);
 
@@ -288,6 +332,7 @@ CREATE INDEX IF NOT EXISTS idx_log_runs_source_hash ON log_runs(source_file_hash
 -- ============================================================
 -- Each curve belongs to a log_run (LAS upload) and a well
 -- Stores both native (original sampling) and gridded (resampled) data
+-- OSDU alignment: Maps to WellLog curves array
 
 CREATE TABLE IF NOT EXISTS curves (
     id TEXT PRIMARY KEY,
@@ -299,6 +344,8 @@ CREATE TABLE IF NOT EXISTS curves (
     unit TEXT,
     unit_id TEXT REFERENCES units(id),
     description TEXT,
+    -- OSDU: IndexType for the curve (usually MD, but can be TVD or TWT for special logs)
+    index_type TEXT DEFAULT 'MD',          -- 'MD', 'TVD', 'TWT' (Two-Way Time)
     -- Native range (original sampling, before resampling)
     native_top_depth REAL,
     native_bottom_depth REAL,
@@ -404,20 +451,22 @@ CREATE TABLE IF NOT EXISTS unified_views (
 CREATE INDEX IF NOT EXISTS idx_unified_views_well ON unified_views(well_id);
 
 -- ============================================================
--- SURVEY RUNS (one per trajectory CSV upload event)
+-- SURVEY RUNS (OSDU: work-product-component--WellboreTrajectory)
 -- ============================================================
 -- Each trajectory CSV import creates a survey_run record
 -- Parallel structure to log_runs for curve data
+-- OSDU alignment: Maps to WellboreTrajectory Work Product Component
 
 CREATE TABLE IF NOT EXISTS survey_runs (
     id TEXT PRIMARY KEY,
     well_id TEXT NOT NULL REFERENCES wells(id) ON DELETE CASCADE,
+    wellbore_id TEXT REFERENCES wellbores(id),  -- OSDU: WellboreID
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     -- Source file info (immutable)
     source_filename TEXT NOT NULL,
     source_file_hash TEXT,
     raw_file_blob_hash TEXT,
-    -- Survey metadata
+    -- Survey metadata (OSDU: SurveyType)
     survey_type TEXT,  -- 'definitive', 'preliminary', 'mwd', 'gyro'
     survey_company TEXT,
     survey_date TEXT,
@@ -450,6 +499,7 @@ CREATE TABLE IF NOT EXISTS survey_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_survey_runs_well ON survey_runs(well_id);
+CREATE INDEX IF NOT EXISTS idx_survey_runs_wellbore ON survey_runs(wellbore_id);
 CREATE INDEX IF NOT EXISTS idx_survey_runs_workspace ON survey_runs(workspace_id);
 
 -- ============================================================
@@ -493,7 +543,7 @@ CREATE INDEX IF NOT EXISTS idx_trajectory_columns_well ON trajectory_columns(wel
 CREATE INDEX IF NOT EXISTS idx_trajectory_columns_type ON trajectory_columns(column_type);
 
 -- ============================================================
--- MARKER SETS (one per marker CSV upload event per well)
+-- MARKER SETS (OSDU: work-product-component--WellboreMarkerSet)
 -- ============================================================
 -- Each marker CSV import creates marker_set record(s) - one per well
 -- Follows OSDU WellboreMarkerSet patterns
@@ -501,15 +551,18 @@ CREATE INDEX IF NOT EXISTS idx_trajectory_columns_type ON trajectory_columns(col
 CREATE TABLE IF NOT EXISTS marker_sets (
     id TEXT PRIMARY KEY,
     well_id TEXT REFERENCES wells(id) ON DELETE SET NULL,  -- Nullable for unmapped marker sets
+    wellbore_id TEXT REFERENCES wellbores(id),             -- OSDU: WellboreID
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     -- Source file info (immutable)
     source_filename TEXT NOT NULL,
     source_file_hash TEXT,
     raw_file_blob_hash TEXT,
-    -- Marker set metadata
+    -- Marker set metadata (OSDU: WellboreMarkerSet)
     name TEXT,                          -- "Formation Tops", "Sequence Boundaries"
     interpretation_type TEXT,           -- 'formation', 'sequence', 'zone', 'horizon'
-    interpreter TEXT,
+    interpreter TEXT,                   -- OSDU: Interpreter name
+    interpretation_date TEXT,           -- OSDU: InterpretationDate (ISO 8601)
+    confidence_level TEXT,              -- OSDU: ConfidenceLevel ('High', 'Medium', 'Low')
     reference_source TEXT,
     -- Depth info
     depth_unit TEXT NOT NULL DEFAULT 'ft',
@@ -526,6 +579,7 @@ CREATE TABLE IF NOT EXISTS marker_sets (
 );
 
 CREATE INDEX IF NOT EXISTS idx_marker_sets_well ON marker_sets(well_id);
+CREATE INDEX IF NOT EXISTS idx_marker_sets_wellbore ON marker_sets(wellbore_id);
 CREATE INDEX IF NOT EXISTS idx_marker_sets_workspace ON marker_sets(workspace_id);
 
 -- ============================================================
@@ -624,7 +678,7 @@ CREATE INDEX IF NOT EXISTS idx_surfaces_type ON surfaces(surface_type);
 CREATE INDEX IF NOT EXISTS idx_surfaces_name ON surfaces(name);
 
 -- ============================================================
--- CHECKSHOT RUNS (one per checkshot CSV upload event)
+-- CHECKSHOT RUNS (OSDU: work-product-component--WellboreCheckshot)
 -- ============================================================
 -- Each checkshot CSV import creates a checkshot_run record
 -- Follows OSDU work-product-component--Checkshot pattern
@@ -633,6 +687,7 @@ CREATE INDEX IF NOT EXISTS idx_surfaces_name ON surfaces(name);
 CREATE TABLE IF NOT EXISTS checkshot_runs (
     id TEXT PRIMARY KEY,
     well_id TEXT NOT NULL REFERENCES wells(id) ON DELETE CASCADE,
+    wellbore_id TEXT REFERENCES wellbores(id),  -- OSDU: WellboreID
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     -- Source file info (immutable)
     source_filename TEXT NOT NULL,
@@ -667,6 +722,7 @@ CREATE TABLE IF NOT EXISTS checkshot_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_checkshot_runs_well ON checkshot_runs(well_id);
+CREATE INDEX IF NOT EXISTS idx_checkshot_runs_wellbore ON checkshot_runs(wellbore_id);
 CREATE INDEX IF NOT EXISTS idx_checkshot_runs_workspace ON checkshot_runs(workspace_id);
 
 -- ============================================================

@@ -159,13 +159,82 @@ pub struct AuthResult {
 }
 
 // ============================================================
-// WELL MODELS
+// WELL MODELS (OSDU master-data--Well / master-data--Wellbore)
 // ============================================================
 
 use crate::wellgrid::{DepthUnit, ResampleMethod, WellDepthGrid};
 
-/// A well containing curve data (belongs directly to a workspace)
+/// Wellbore status (OSDU pattern)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum WellboreStatus {
+	/// Active wellbore
+	#[default]
+	Active,
+	/// Plugged and abandoned
+	Plugged,
+	/// Temporarily suspended
+	Suspended,
+}
+
+impl std::fmt::Display for WellboreStatus {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			WellboreStatus::Active => write!(f, "active"),
+			WellboreStatus::Plugged => write!(f, "plugged"),
+			WellboreStatus::Suspended => write!(f, "suspended"),
+		}
+	}
+}
+
+impl std::str::FromStr for WellboreStatus {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s.to_lowercase().as_str() {
+			"active" => Ok(WellboreStatus::Active),
+			"plugged" | "p&a" | "abandoned" => Ok(WellboreStatus::Plugged),
+			"suspended" | "si" | "ta" => Ok(WellboreStatus::Suspended),
+			_ => Err(format!("Unknown wellbore status: {}", s)),
+		}
+	}
+}
+
+/// A wellbore represents a drilled path within a well (OSDU master-data--Wellbore)
 ///
+/// OSDU separates Well (surface location) from Wellbore (drilled path).
+/// A single Well can have multiple Wellbores (sidetracks).
+/// All subsurface data (logs, trajectories, markers) attach to Wellbores.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Wellbore {
+	pub id: Uuid,
+	pub workspace_id: Uuid,
+	/// Parent well this wellbore belongs to
+	pub well_id: Uuid,
+	/// Wellbore name (e.g., "Main Bore", "Sidetrack 1")
+	pub name: String,
+	/// Sequence number (OSDU: SequenceNumber) - 1 for main bore
+	pub wellbore_number: Option<i32>,
+	/// Parent wellbore ID for sidetracks
+	pub parent_wellbore_id: Option<Uuid>,
+	/// Kickoff measured depth for sidetracks
+	pub kickoff_md: Option<f64>,
+	/// Current status
+	pub status: Option<WellboreStatus>,
+	/// Total measured depth (OSDU: TotalMeasuredDepth)
+	pub total_md: Option<f64>,
+	/// Total true vertical depth (OSDU: TotalVerticalDepth)
+	pub total_tvd: Option<f64>,
+	pub created_at: DateTime<Utc>,
+	pub updated_at: DateTime<Utc>,
+	pub version: i64,
+	pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// A well representing a surface location (OSDU master-data--Well)
+///
+/// In OSDU, a Well represents the surface location where drilling occurs.
+/// The actual drilled paths are Wellbores (which can include sidetracks).
 /// Each well has a canonical depth grid that defines the sampling
 /// interval for all curves. When curves are imported, they are
 /// resampled to align with this grid.
@@ -174,12 +243,35 @@ pub struct Well {
 	pub id: Uuid,
 	pub workspace_id: Uuid,
 	pub name: String,
+	/// Unique Well Identifier (API number in US)
 	pub uwi: Option<String>,
 	pub field: Option<String>,
 	pub company: Option<String>,
 	pub location: Option<String>,
+	/// Well X coordinate (may differ from surface_x for slot wells)
 	pub x: Option<f64>,
+	/// Well Y coordinate (may differ from surface_y for slot wells)
 	pub y: Option<f64>,
+
+	// ===== OSDU master-data--Well fields =====
+	/// Facility operator (OSDU: FacilityOperator)
+	pub operator: Option<String>,
+	/// Spud date - when drilling started (OSDU: SpudDate, ISO 8601)
+	pub spud_date: Option<String>,
+	/// Surface location X coordinate (OSDU: SurfaceLocation)
+	pub surface_x: Option<f64>,
+	/// Surface location Y coordinate (OSDU: SurfaceLocation)
+	pub surface_y: Option<f64>,
+	/// Coordinate Reference System for surface location (e.g., "EPSG:32631")
+	pub surface_crs: Option<String>,
+	/// Country (OSDU: Country)
+	pub country: Option<String>,
+	/// State or Province (OSDU: State/Province)
+	pub state_province: Option<String>,
+	/// County (OSDU: County)
+	pub county: Option<String>,
+
+	// ===== Depth grid configuration =====
 	/// Depth unit for this well's canonical grid (ft or m)
 	pub depth_unit: DepthUnit,
 	/// Depth step size (e.g., 0.5 for half-foot sampling)
@@ -190,6 +282,8 @@ pub struct Well {
 	pub min_depth: Option<f64>,
 	/// Maximum depth across all curves (computed)
 	pub max_depth: Option<f64>,
+
+	// ===== Tracking =====
 	pub created_by: Uuid,
 	pub created_at: DateTime<Utc>,
 	pub updated_at: DateTime<Utc>,
@@ -208,7 +302,7 @@ impl Well {
 // LOG RUN MODELS (LAS Upload Events)
 // ============================================================
 
-/// A log run represents a single LAS file upload event
+/// A log run represents a single LAS file upload event (OSDU WellLog WPC)
 ///
 /// Each LAS file import creates a log_run record that preserves
 /// the original file metadata and provenance. Multiple curves
@@ -218,24 +312,38 @@ pub struct LogRun {
 	pub id: Uuid,
 	pub well_id: Uuid,
 	pub workspace_id: Uuid,
+	/// Wellbore this log run belongs to (OSDU: WellboreID)
+	pub wellbore_id: Option<Uuid>,
+
+	// ===== Source file info (immutable) =====
 	/// Original filename
 	pub source_filename: String,
 	/// SHA-256 hash of original file (for deduplication)
 	pub source_file_hash: Option<String>,
 	/// Blob hash of stored raw LAS file
 	pub raw_file_blob_hash: Option<String>,
+
+	// ===== Log classification =====
 	/// Log type (raw, processed, interpreted, composite)
 	pub log_type_id: Option<String>,
 	/// Acquisition type (wireline, lwd, mwd, etc.)
 	pub acquisition_type_id: Option<String>,
+
+	// ===== OSDU WellLog WPC fields =====
 	/// Run number within the well
 	pub run_number: Option<i32>,
+	/// Log activity type (OSDU: LogActivity - 'Main Pass', 'Repeat', 'Calibration')
+	pub log_activity: Option<String>,
+	/// Activity type (OSDU: ActivityType - 'Wireline', 'LWD', 'MWD')
+	pub activity_type: Option<String>,
 	/// Service company name
 	pub service_company: Option<String>,
 	/// Logging tool name
 	pub tool_name: Option<String>,
 	/// Date of logging operation
 	pub logging_date: Option<String>,
+
+	// ===== Original file metadata =====
 	/// Original top depth (before resampling)
 	pub original_top_depth: Option<f64>,
 	/// Original bottom depth (before resampling)
@@ -248,6 +356,8 @@ pub struct LogRun {
 	pub original_null_value: Option<f64>,
 	/// LAS file version
 	pub las_version: Option<String>,
+
+	// ===== Tracking =====
 	/// Who imported this file
 	pub imported_by: Option<Uuid>,
 	pub imported_at: DateTime<Utc>,
@@ -551,6 +661,8 @@ pub struct Curve {
 	pub original_unit: Option<String>,
 	/// Linked unit ID for unit conversion support
 	pub unit_id: Option<String>,
+	/// Index type for this curve ('MD', 'TVD', 'TWT' for time-based logs)
+	pub index_type: Option<String>,
 
 	// ===== Native storage (original data) =====
 	/// Top depth in native data
@@ -1441,7 +1553,87 @@ impl std::str::FromStr for CheckshotColumnType {
 	}
 }
 
-/// A survey run represents a single trajectory CSV upload event
+/// A checkshot run represents a single checkshot CSV upload event (OSDU WellboreCheckshot)
+///
+/// Following OSDU WellboreCheckshot patterns. Each checkshot CSV import
+/// creates a checkshot_run record that preserves the original file metadata
+/// and time-depth relationship data.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckshotRun {
+	pub id: Uuid,
+	pub well_id: Uuid,
+	pub workspace_id: Uuid,
+	/// Wellbore this checkshot run belongs to (OSDU: WellboreID)
+	pub wellbore_id: Option<Uuid>,
+
+	// ===== Source file info (immutable) =====
+	/// Original filename
+	pub source_filename: String,
+	/// SHA-256 hash of original file (for deduplication)
+	pub source_file_hash: Option<String>,
+	/// Blob hash of stored raw CSV file
+	pub raw_file_blob_hash: Option<String>,
+	/// Blob hash of stored Parquet data
+	pub data_blob_hash: Option<String>,
+
+	// ===== Checkshot metadata =====
+	/// Run name or identifier
+	pub run_name: Option<String>,
+	/// Date of acquisition
+	pub acquisition_date: Option<String>,
+	/// Service company that acquired the data
+	pub service_company: Option<String>,
+	/// Seismic reference datum (e.g., "MSL", "SRD")
+	pub seismic_reference_datum: Option<String>,
+	/// Datum elevation (e.g., SRD elevation above MSL)
+	pub datum_elevation: Option<f64>,
+
+	// ===== Units =====
+	/// Depth unit (ft or m)
+	pub depth_unit: String,
+	/// Time unit (s or ms)
+	pub time_unit: String,
+
+	// ===== Data range =====
+	/// Minimum measured depth
+	pub min_md: Option<f64>,
+	/// Maximum measured depth
+	pub max_md: Option<f64>,
+	/// Minimum true vertical depth
+	pub min_tvd: Option<f64>,
+	/// Maximum true vertical depth
+	pub max_tvd: Option<f64>,
+	/// Minimum two-way time
+	pub min_twt: Option<f64>,
+	/// Maximum two-way time
+	pub max_twt: Option<f64>,
+	/// Number of checkshot stations
+	pub station_count: Option<i32>,
+
+	// ===== Tracking =====
+	/// Who imported this file
+	pub imported_by: Option<Uuid>,
+	pub imported_at: DateTime<Utc>,
+	pub version: i64,
+	pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// Summary of a checkshot run for display in lists
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckshotRunSummary {
+	pub id: Uuid,
+	pub well_id: Uuid,
+	pub source_filename: String,
+	pub run_name: Option<String>,
+	pub min_md: Option<f64>,
+	pub max_md: Option<f64>,
+	pub station_count: Option<i32>,
+	pub depth_unit: String,
+	pub time_unit: String,
+	pub imported_at: DateTime<Utc>,
+}
+
+/// A survey run represents a single trajectory CSV upload event (OSDU WellboreTrajectory)
 ///
 /// Parallel structure to LogRun for curve data. Each trajectory CSV import
 /// creates a survey_run record that preserves the original file metadata
@@ -1451,6 +1643,8 @@ pub struct SurveyRun {
 	pub id: Uuid,
 	pub well_id: Uuid,
 	pub workspace_id: Uuid,
+	/// Wellbore this survey run belongs to (OSDU: WellboreID)
+	pub wellbore_id: Option<Uuid>,
 
 	// ===== Source file info (immutable) =====
 	/// Original filename
@@ -1804,7 +1998,7 @@ impl std::str::FromStr for MarkerQuality {
 	}
 }
 
-/// A marker set represents a single marker CSV upload event per well
+/// A marker set represents a single marker CSV upload event per well (OSDU WellboreMarkerSet)
 ///
 /// Following OSDU WellboreMarkerSet patterns. Each marker CSV import
 /// creates one or more marker_set records (one per well in multi-well files).
@@ -1813,6 +2007,8 @@ pub struct MarkerSet {
 	pub id: Uuid,
 	pub well_id: Uuid,
 	pub workspace_id: Uuid,
+	/// Wellbore this marker set belongs to (OSDU: WellboreID)
+	pub wellbore_id: Option<Uuid>,
 
 	// ===== Source file info (immutable) =====
 	/// Original filename
@@ -1822,13 +2018,17 @@ pub struct MarkerSet {
 	/// Blob hash of stored raw file
 	pub raw_file_blob_hash: Option<String>,
 
-	// ===== Marker set metadata =====
+	// ===== Marker set metadata (OSDU WellboreMarkerSet fields) =====
 	/// Name of this marker set (e.g., "Formation Tops", "Sequence Boundaries")
 	pub name: Option<String>,
 	/// Type of interpretation
 	pub interpretation_type: Option<InterpretationType>,
-	/// Who interpreted/picked these markers
+	/// Who interpreted/picked these markers (OSDU: Interpreter)
 	pub interpreter: Option<String>,
+	/// Date of interpretation (OSDU: InterpretationDate, ISO 8601)
+	pub interpretation_date: Option<String>,
+	/// Confidence level (OSDU: ConfidenceLevel - 'High', 'Medium', 'Low')
+	pub confidence_level: Option<String>,
 	/// Reference source for the interpretation
 	pub reference_source: Option<String>,
 

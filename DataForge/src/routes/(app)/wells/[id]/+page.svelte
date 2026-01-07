@@ -220,10 +220,24 @@
 										<span class="text-sm font-medium">{well.company}</span>
 									</div>
 								{/if}
+								{#if well.operator}
+									<div class="flex justify-between py-1.5">
+										<span class="text-muted-foreground text-sm">Operator</span>
+										<span class="text-sm font-medium">{well.operator}</span>
+									</div>
+								{/if}
 								{#if well.location}
 									<div class="flex justify-between py-1.5">
 										<span class="text-muted-foreground text-sm">Location</span>
 										<span class="text-sm font-medium">{well.location}</span>
+									</div>
+								{/if}
+								{#if well.country || well.state_province || well.county}
+									<div class="flex justify-between py-1.5">
+										<span class="text-muted-foreground text-sm">Region</span>
+										<span class="text-sm font-medium">
+											{[well.county, well.state_province, well.country].filter(Boolean).join(', ')}
+										</span>
 									</div>
 								{/if}
 								{#if well.x !== null && well.y !== null}
@@ -232,6 +246,23 @@
 										<span class="text-sm font-medium">
 											{well.x.toFixed(4)}, {well.y.toFixed(4)}
 										</span>
+									</div>
+								{/if}
+								{#if well.surface_x !== null && well.surface_y !== null}
+									<div class="flex justify-between py-1.5">
+										<span class="text-muted-foreground text-sm">Surface Location</span>
+										<span class="text-sm font-medium">
+											{well.surface_x.toFixed(2)}, {well.surface_y.toFixed(2)}
+											{#if well.surface_crs}
+												<span class="text-muted-foreground ml-1">({well.surface_crs})</span>
+											{/if}
+										</span>
+									</div>
+								{/if}
+								{#if well.spud_date}
+									<div class="flex justify-between py-1.5">
+										<span class="text-muted-foreground text-sm">Spud Date</span>
+										<span class="text-sm font-medium">{well.spud_date}</span>
 									</div>
 								{/if}
 								<div class="flex justify-between py-1.5">
