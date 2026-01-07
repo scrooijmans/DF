@@ -335,6 +335,27 @@ pub async fn ingest_las_files(
             .map_err(|e| format!("Failed to create well: {}", e))?;
 
             info!("Created new well: {} ({})", well_name, new_well_id);
+
+            // Create default wellbore (OSDU pattern: Well + Wellbore separation)
+            let wellbore_id = uuid::Uuid::new_v4().to_string();
+            db.execute(
+                r#"
+                INSERT INTO wellbores (id, workspace_id, well_id, name, wellbore_number, status)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                "#,
+                params![
+                    wellbore_id,
+                    workspace_id,
+                    new_well_id,
+                    "Main Bore",
+                    1_i32,
+                    "active",
+                ],
+            )
+            .map_err(|e| format!("Failed to create default wellbore: {}", e))?;
+
+            info!("Created default wellbore: {}", wellbore_id);
+
             new_well_id
         };
 

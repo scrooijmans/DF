@@ -71,6 +71,9 @@ export interface MarkerColumnConfig {
 	unit: string | null
 }
 
+// Confidence level for marker interpretations (OSDU pattern)
+export type ConfidenceLevel = 'High' | 'Medium' | 'Low'
+
 // Request for ingesting marker CSV files
 export interface IngestMarkerRequest {
 	file_paths: string[]
@@ -78,7 +81,12 @@ export interface IngestMarkerRequest {
 	column_configs: MarkerColumnConfig[]
 	set_name: string | null
 	interpretation_type: InterpretationType | null
+
+	// OSDU WellboreMarkerSet fields
 	interpreter: string | null
+	interpretation_date: string | null // ISO 8601
+	confidence_level: ConfidenceLevel | null
+
 	depth_unit: string | null
 	depth_reference: string | null
 	auto_create_wells: boolean

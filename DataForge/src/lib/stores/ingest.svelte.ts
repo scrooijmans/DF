@@ -19,7 +19,8 @@ import type {
 	IngestTrajectoryResponse,
 	TrajectoryColumnInfo,
 	TrajectoryColumnConfig,
-	SurveyType
+	SurveyType,
+	AzimuthReference
 } from '$lib/types/trajectory'
 import type {
 	ParseMarkerResponse,
@@ -29,7 +30,8 @@ import type {
 	MarkerColumnConfig,
 	WellMappingEntry,
 	InterpretationType,
-	MarkerColumnType
+	MarkerColumnType,
+	ConfidenceLevel
 } from '$lib/types/markers'
 import type {
 	ParseSurfaceResponse,
@@ -132,11 +134,14 @@ export interface TrajectoryFileMetadata {
 	hasRequiredColumns: boolean
 	missingRequired: string[]
 	warnings: string[]
-	// Survey metadata (user inputs)
+	// Survey metadata (user inputs) - OSDU WellboreTrajectory fields
 	surveyType?: SurveyType
 	surveyCompany?: string
+	azimuthReference?: AzimuthReference
+	// Survey correction parameters
 	magneticDeclination?: number
 	gridConvergence?: number
+	// Units
 	mdUnit: string
 	angleUnit: string
 }
@@ -175,10 +180,13 @@ export interface MarkerFileMetadata {
 	hasRequiredColumns: boolean
 	missingRequired: string[]
 	warnings: string[]
-	// User inputs for marker set
+	// User inputs for marker set - OSDU WellboreMarkerSet fields
 	setName?: string
 	interpretationType?: InterpretationType
 	interpreter?: string
+	interpretationDate?: string
+	confidenceLevel?: ConfidenceLevel
+	// Depth settings
 	depthUnit: string
 	depthReference?: string
 	autoCreateWells: boolean
@@ -763,10 +771,14 @@ function createIngestStore() {
 			target_well_id: state.config.targetWellId ?? null,
 			new_well_name: state.config.newWellName ?? null,
 			column_configs: columnConfigs,
+			// OSDU WellboreTrajectory fields
 			survey_type: (trajectoryMeta?.surveyType as SurveyType) ?? null,
 			survey_company: trajectoryMeta?.surveyCompany ?? null,
+			azimuth_reference: trajectoryMeta?.azimuthReference ?? null,
+			// Survey correction parameters
 			magnetic_declination: trajectoryMeta?.magneticDeclination ?? null,
 			grid_convergence: trajectoryMeta?.gridConvergence ?? null,
+			// Units
 			md_unit: trajectoryMeta?.mdUnit ?? null,
 			angle_unit: trajectoryMeta?.angleUnit ?? null
 		}
@@ -807,7 +819,11 @@ function createIngestStore() {
 			column_configs: columnConfigs,
 			set_name: markerMeta?.setName ?? null,
 			interpretation_type: markerMeta?.interpretationType ?? null,
+			// OSDU WellboreMarkerSet fields
 			interpreter: markerMeta?.interpreter ?? null,
+			interpretation_date: markerMeta?.interpretationDate ?? null,
+			confidence_level: markerMeta?.confidenceLevel ?? null,
+			// Depth settings
 			depth_unit: markerMeta?.depthUnit ?? null,
 			depth_reference: markerMeta?.depthReference ?? null,
 			auto_create_wells: markerMeta?.autoCreateWells ?? false,
@@ -941,6 +957,8 @@ function createIngestStore() {
 				| 'setName'
 				| 'interpretationType'
 				| 'interpreter'
+				| 'interpretationDate'
+				| 'confidenceLevel'
 				| 'depthUnit'
 				| 'depthReference'
 				| 'autoCreateWells'
@@ -1009,6 +1027,7 @@ function createIngestStore() {
 				TrajectoryFileMetadata,
 				| 'surveyType'
 				| 'surveyCompany'
+				| 'azimuthReference'
 				| 'magneticDeclination'
 				| 'gridConvergence'
 				| 'mdUnit'

@@ -2,7 +2,41 @@
  * Types for data ingestion
  *
  * Corresponds to types in src-tauri/src/ingest_commands.rs
+ * and models in crates/dataforge-core/src/models.rs
+ *
+ * OSDU Schema Alignment:
+ * - Well represents surface location (OSDU master-data--Well)
+ * - Wellbore represents drilled path (OSDU master-data--Wellbore)
+ * - LogRun corresponds to OSDU WellLog WPC
+ * - SurveyRun corresponds to OSDU WellboreTrajectory
+ * - MarkerSet corresponds to OSDU WellboreMarkerSet
+ * - CheckshotRun corresponds to OSDU WellboreCheckshot
  */
+
+// ============================================================
+// WELLBORE TYPES (OSDU master-data--Wellbore)
+// ============================================================
+
+export type WellboreStatus = 'active' | 'plugged' | 'suspended'
+
+export interface Wellbore {
+	id: string
+	workspace_id: string
+	well_id: string
+	name: string
+	wellbore_number?: number
+	parent_wellbore_id?: string
+	kickoff_md?: number
+	status?: WellboreStatus
+	total_md?: number
+	total_tvd?: number
+	created_at: string
+	updated_at: string
+}
+
+// ============================================================
+// LAS INGESTION TYPES
+// ============================================================
 
 // Response from parse_las_for_ingest command
 export interface ParseLasResponse {
@@ -121,6 +155,10 @@ export interface WorkspaceStats {
 	total_size_bytes: number
 }
 
+// ============================================================
+// WELL DETAIL TYPES (OSDU master-data--Well)
+// ============================================================
+
 // Well details for well detail page
 export interface WellDetails {
 	id: string
@@ -131,14 +169,49 @@ export interface WellDetails {
 	location: string | null
 	x: number | null
 	y: number | null
+
+	// OSDU master-data--Well fields
+	operator: string | null
+	spud_date: string | null
+	surface_x: number | null
+	surface_y: number | null
+	surface_crs: string | null
+	country: string | null
+	state_province: string | null
+	county: string | null
+
+	// Depth grid configuration
 	depth_unit: string
 	depth_step: number
 	depth_origin: number
 	min_depth: number | null
 	max_depth: number | null
+
+	// Tracking
 	created_at: string
 	updated_at: string
+
+	// Computed statistics
 	curve_count: number
 	total_data_points: number
 	total_size_bytes: number
+
+	// Wellbores for this well
+	wellbores?: Wellbore[]
+}
+
+// ============================================================
+// LOG RUN TYPES (OSDU WellLog WPC)
+// ============================================================
+
+export type LogActivity = 'Main Pass' | 'Repeat' | 'Calibration'
+export type ActivityType = 'Wireline' | 'LWD' | 'MWD'
+
+export interface LogRunMetadata {
+	wellbore_id?: string
+	run_number?: number
+	log_activity?: LogActivity
+	activity_type?: ActivityType
+	service_company?: string
+	tool_name?: string
 }

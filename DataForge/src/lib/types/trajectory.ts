@@ -23,6 +23,9 @@ export type TrajectoryColumnType =
 // Survey types (matches SurveyType in Rust)
 export type SurveyType = 'definitive' | 'mwd' | 'gyro' | 'preliminary' | 'composite'
 
+// Azimuth reference types (OSDU pattern)
+export type AzimuthReference = 'true_north' | 'grid_north' | 'magnetic_north'
+
 // Response from parse_trajectory_for_ingest command
 export interface ParseTrajectoryResponse {
 	file_id: string
@@ -64,10 +67,17 @@ export interface IngestTrajectoryRequest {
 	target_well_id: string | null
 	new_well_name: string | null
 	column_configs: TrajectoryColumnConfig[]
+
+	// OSDU WellboreTrajectory fields
 	survey_type: SurveyType | null
 	survey_company: string | null
+	azimuth_reference: AzimuthReference | null
+
+	// Survey correction parameters
 	magnetic_declination: number | null
 	grid_convergence: number | null
+
+	// Units
 	md_unit: string | null
 	angle_unit: string | null
 }
