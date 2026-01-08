@@ -880,10 +880,15 @@ CREATE INDEX IF NOT EXISTS idx_sync_conflicts_pending ON sync_conflicts(resoluti
 /// Initialize the database with the schema
 pub fn init_db(conn: &Connection) -> SqliteResult<()> {
 	info!("Initializing DataForge database schema");
-	conn.execute_batch(SCHEMA)?;
 
-	// Run migrations for existing databases
+	// Run migrations FIRST for existing databases
+	// This ensures columns exist before SCHEMA tries to create indexes on them
+	// For fresh databases, migrations are no-ops (columns don't exist yet to check)
 	run_migrations(conn)?;
+
+	// Execute main schema batch
+	// Uses CREATE TABLE/INDEX IF NOT EXISTS - safe for both fresh and existing DBs
+	conn.execute_batch(SCHEMA)?;
 
 	// Seed reference data (log types, acquisition types, curve properties, mnemonics)
 	insert_default_reference_data(conn)?;
@@ -892,17 +897,36 @@ pub fn init_db(conn: &Connection) -> SqliteResult<()> {
 	Ok(())
 }
 
+/// Helper function to check if a table exists
+fn table_exists(conn: &Connection, table_name: &str) -> bool {
+	conn.prepare(&format!(
+		"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{}'",
+		table_name
+	))
+	.and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, i64>(0)))
+	.map(|count| count > 0)
+	.unwrap_or(false)
+}
+
+/// Helper function to check if a column exists in a table
+fn column_exists(conn: &Connection, table_name: &str, column_name: &str) -> bool {
+	conn.prepare(&format!(
+		"SELECT COUNT(*) FROM pragma_table_info('{}') WHERE name = '{}'",
+		table_name, column_name
+	))
+	.and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, i64>(0)))
+	.map(|count| count > 0)
+	.unwrap_or(false)
+}
+
 /// Run database migrations for schema changes
+/// Note: Migrations run BEFORE the main schema batch to handle existing databases
+/// For fresh databases, most migrations are no-ops because tables don't exist yet
 fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 	// Migration 1: Add conflict_strategy column to sync_state if missing
 	// Added in Phase 4 of sync implementation
-	let has_conflict_strategy: bool = conn
-		.prepare("SELECT COUNT(*) FROM pragma_table_info('sync_state') WHERE name = 'conflict_strategy'")?
-		.query_row([], |row| row.get::<_, i64>(0))
-		.map(|count| count > 0)
-		.unwrap_or(false);
-
-	if !has_conflict_strategy {
+	// Only run if sync_state table exists (existing database)
+	if table_exists(conn, "sync_state") && !column_exists(conn, "sync_state", "conflict_strategy") {
 		info!("Running migration: adding conflict_strategy column to sync_state");
 		conn.execute(
 			"ALTER TABLE sync_state ADD COLUMN conflict_strategy TEXT NOT NULL DEFAULT 'manual'",
@@ -912,11 +936,9 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 
 	// Migration 2: Check if curves table has old schema (curve_name column) and recreate it
 	// This handles the schema change from single blob_hash to native/gridded dual storage
-	let has_old_curves_schema: bool = conn
-		.prepare("SELECT COUNT(*) FROM pragma_table_info('curves') WHERE name = 'curve_name'")?
-		.query_row([], |row| row.get::<_, i64>(0))
-		.map(|count| count > 0)
-		.unwrap_or(false);
+	// Only run if curves table exists (existing database)
+	let has_old_curves_schema = table_exists(conn, "curves")
+		&& column_exists(conn, "curves", "curve_name");
 
 	if has_old_curves_schema {
 		info!("Running migration: recreating curves table with new schema (native/gridded storage + quality fields)");
@@ -975,13 +997,8 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 
 	// Migration 2b: Add quality fields to existing curves table if missing
 	// This handles databases that have the new schema but not the quality fields
-	let has_quality_flag: bool = conn
-		.prepare("SELECT COUNT(*) FROM pragma_table_info('curves') WHERE name = 'quality_flag'")?
-		.query_row([], |row| row.get::<_, i64>(0))
-		.map(|count| count > 0)
-		.unwrap_or(false);
-
-	if !has_quality_flag {
+	// Only run if curves table exists
+	if table_exists(conn, "curves") && !column_exists(conn, "curves", "quality_flag") {
 		info!("Running migration: adding quality fields to curves table");
 		conn.execute("ALTER TABLE curves ADD COLUMN null_value REAL", [])?;
 		conn.execute("ALTER TABLE curves ADD COLUMN quality_flag TEXT DEFAULT 'raw'", [])?;
@@ -994,13 +1011,10 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 
 	// Migration 2c: Add OSDU-inspired columns to curve_properties if missing
 	// This handles databases created before the OSDU unit service was added
-	let has_measurement_type_id: bool = conn
-		.prepare("SELECT COUNT(*) FROM pragma_table_info('curve_properties') WHERE name = 'measurement_type_id'")?
-		.query_row([], |row| row.get::<_, i64>(0))
-		.map(|count| count > 0)
-		.unwrap_or(false);
-
-	if !has_measurement_type_id {
+	// Only run if curve_properties table exists
+	if table_exists(conn, "curve_properties")
+		&& !column_exists(conn, "curve_properties", "measurement_type_id")
+	{
 		info!("Running migration: adding OSDU-inspired columns to curve_properties table");
 		conn.execute("ALTER TABLE curve_properties ADD COLUMN measurement_type_id TEXT REFERENCES measurement_types(id)", [])?;
 		conn.execute("ALTER TABLE curve_properties ADD COLUMN min_valid_value REAL", [])?;
@@ -1009,11 +1023,7 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 
 	// Migration 3: Create unified_views table if it doesn't exist
 	// This is handled by the main schema, but we check explicitly for safety
-	let unified_views_exists: bool = conn
-		.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='unified_views'")?
-		.query_row([], |row| row.get::<_, i64>(0))
-		.map(|count| count > 0)
-		.unwrap_or(false);
+	let unified_views_exists = table_exists(conn, "unified_views");
 
 	if !unified_views_exists {
 		info!("Running migration: creating unified_views table");
@@ -1039,13 +1049,8 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 
 	// Migration 4: Add well_name column to markers table if missing
 	// This column stores the original well name from CSV for unmapped markers
-	let markers_has_well_name: bool = conn
-		.prepare("SELECT COUNT(*) FROM pragma_table_info('markers') WHERE name = 'well_name'")?
-		.query_row([], |row| row.get::<_, i64>(0))
-		.map(|count| count > 0)
-		.unwrap_or(false);
-
-	if !markers_has_well_name {
+	// Only run if markers table exists
+	if table_exists(conn, "markers") && !column_exists(conn, "markers", "well_name") {
 		info!("Running migration: adding well_name column to markers table");
 		conn.execute("ALTER TABLE markers ADD COLUMN well_name TEXT", [])?;
 		// Create the index after column exists
@@ -1060,19 +1065,175 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 	let work_product_tables = ["log_runs", "survey_runs", "marker_sets", "surfaces", "checkshot_runs"];
 
 	for table in work_product_tables {
-		let has_schema_version: bool = conn
-			.prepare(&format!("SELECT COUNT(*) FROM pragma_table_info('{}') WHERE name = 'schema_version'", table))?
-			.query_row([], |row| row.get::<_, i64>(0))
-			.map(|count| count > 0)
-			.unwrap_or(false);
-
-		if !has_schema_version {
-			info!("Running migration: adding schema_version column to {} table", table);
+		// Only run if table exists
+		if table_exists(conn, table) && !column_exists(conn, table, "schema_version") {
+			info!(
+				"Running migration: adding schema_version column to {} table",
+				table
+			);
 			conn.execute(
-				&format!("ALTER TABLE {} ADD COLUMN schema_version TEXT DEFAULT '1.0.0'", table),
+				&format!(
+					"ALTER TABLE {} ADD COLUMN schema_version TEXT DEFAULT '1.0.0'",
+					table
+				),
 				[],
 			)?;
 		}
+	}
+
+	// Migration 6: OSDU Schema Alignment
+	// Adds wellbores table and OSDU columns to existing tables
+	// This migration supports existing databases that predate the OSDU schema changes
+
+	// 6a: Create wellbores table if it doesn't exist
+	let wellbores_exists = table_exists(conn, "wellbores");
+
+	if !wellbores_exists {
+		info!("Running migration 6a: creating wellbores table");
+		conn.execute_batch(
+			r#"
+			CREATE TABLE IF NOT EXISTS wellbores (
+				id TEXT PRIMARY KEY,
+				workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+				well_id TEXT NOT NULL REFERENCES wells(id) ON DELETE CASCADE,
+				name TEXT NOT NULL,
+				wellbore_number INTEGER DEFAULT 1,
+				parent_wellbore_id TEXT REFERENCES wellbores(id),
+				kickoff_md REAL,
+				status TEXT,
+				total_md REAL,
+				total_tvd REAL,
+				created_at TEXT NOT NULL DEFAULT (datetime('now')),
+				updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+				version INTEGER NOT NULL DEFAULT 1,
+				deleted_at TEXT,
+				UNIQUE(well_id, name)
+			);
+			CREATE INDEX IF NOT EXISTS idx_wellbores_workspace ON wellbores(workspace_id);
+			CREATE INDEX IF NOT EXISTS idx_wellbores_well ON wellbores(well_id);
+			"#,
+		)?;
+	}
+
+	// 6b: Add OSDU columns to wells table (only if wells table exists)
+	if table_exists(conn, "wells") {
+		let wells_osdu_columns = [
+			("operator", "TEXT"),
+			("spud_date", "TEXT"),
+			("surface_x", "REAL"),
+			("surface_y", "REAL"),
+			("surface_crs", "TEXT"),
+			("country", "TEXT"),
+			("state_province", "TEXT"),
+			("county", "TEXT"),
+		];
+
+		for (column, col_type) in wells_osdu_columns {
+			if !column_exists(conn, "wells", column) {
+				info!("Running migration 6b: adding {} column to wells table", column);
+				conn.execute(
+					&format!("ALTER TABLE wells ADD COLUMN {} {}", column, col_type),
+					[],
+				)?;
+			}
+		}
+	}
+
+	// 6c: Add OSDU columns to log_runs table (only if log_runs table exists)
+	if table_exists(conn, "log_runs") {
+		let log_runs_osdu_columns = [
+			("wellbore_id", "TEXT REFERENCES wellbores(id)"),
+			("log_activity", "TEXT"),
+			("activity_type", "TEXT"),
+		];
+
+		for (column, col_type) in log_runs_osdu_columns {
+			if !column_exists(conn, "log_runs", column) {
+				info!(
+					"Running migration 6c: adding {} column to log_runs table",
+					column
+				);
+				conn.execute(
+					&format!("ALTER TABLE log_runs ADD COLUMN {} {}", column, col_type),
+					[],
+				)?;
+			}
+		}
+
+		// Create index on log_runs.wellbore_id if column exists
+		if column_exists(conn, "log_runs", "wellbore_id") {
+			conn.execute(
+				"CREATE INDEX IF NOT EXISTS idx_log_runs_wellbore ON log_runs(wellbore_id)",
+				[],
+			)?;
+		}
+	}
+
+	// 6d: Add index_type column to curves table (only if curves table exists)
+	if table_exists(conn, "curves") && !column_exists(conn, "curves", "index_type") {
+		info!("Running migration 6d: adding index_type column to curves table");
+		conn.execute(
+			"ALTER TABLE curves ADD COLUMN index_type TEXT DEFAULT 'MD'",
+			[],
+		)?;
+	}
+
+	// 6e: Add wellbore_id column to survey_runs table (only if survey_runs table exists)
+	if table_exists(conn, "survey_runs") && !column_exists(conn, "survey_runs", "wellbore_id") {
+		info!("Running migration 6e: adding wellbore_id column to survey_runs table");
+		conn.execute(
+			"ALTER TABLE survey_runs ADD COLUMN wellbore_id TEXT REFERENCES wellbores(id)",
+			[],
+		)?;
+		conn.execute(
+			"CREATE INDEX IF NOT EXISTS idx_survey_runs_wellbore ON survey_runs(wellbore_id)",
+			[],
+		)?;
+	}
+
+	// 6f: Add OSDU columns to marker_sets table (only if marker_sets table exists)
+	if table_exists(conn, "marker_sets") {
+		let marker_sets_osdu_columns = [
+			("wellbore_id", "TEXT REFERENCES wellbores(id)"),
+			("interpretation_date", "TEXT"),
+			("confidence_level", "TEXT"),
+		];
+
+		for (column, col_type) in marker_sets_osdu_columns {
+			if !column_exists(conn, "marker_sets", column) {
+				info!(
+					"Running migration 6f: adding {} column to marker_sets table",
+					column
+				);
+				conn.execute(
+					&format!("ALTER TABLE marker_sets ADD COLUMN {} {}", column, col_type),
+					[],
+				)?;
+			}
+		}
+
+		// Create index on marker_sets.wellbore_id if column exists
+		if column_exists(conn, "marker_sets", "wellbore_id") {
+			conn.execute(
+				"CREATE INDEX IF NOT EXISTS idx_marker_sets_wellbore ON marker_sets(wellbore_id)",
+				[],
+			)?;
+		}
+	}
+
+	// 6g: Add wellbore_id column to checkshot_runs table (only if checkshot_runs table exists)
+	if table_exists(conn, "checkshot_runs")
+		&& !column_exists(conn, "checkshot_runs", "wellbore_id")
+	{
+		info!("Running migration 6g: adding wellbore_id column to checkshot_runs table");
+		conn.execute(
+			"ALTER TABLE checkshot_runs ADD COLUMN wellbore_id TEXT REFERENCES wellbores(id)",
+			[],
+		)?;
+		conn.execute(
+			"CREATE INDEX IF NOT EXISTS idx_checkshot_runs_wellbore ON checkshot_runs(wellbore_id)",
+			[],
+		)?;
 	}
 
 	Ok(())
