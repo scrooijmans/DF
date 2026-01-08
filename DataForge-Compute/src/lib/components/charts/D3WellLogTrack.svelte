@@ -7,7 +7,9 @@
 	 * - Stacked header rows showing scale range per curve
 	 * - Vertical grid lines
 	 * - Optional crossover fill between curves
-	 * - Shared depth (Y) axis
+	 * - Shared depth (Y) axis with visible labels
+	 * - Interactive crosshair with value tooltips
+	 * - Zoom/pan support for depth range
 	 *
 	 * Uses Svelte 5 runes and D3.js for SVG rendering.
 	 */
@@ -36,6 +38,13 @@
 		}>
 	}
 
+	interface CrosshairValue {
+		mnemonic: string
+		value: number
+		color: string
+		unit: string
+	}
+
 	// =========================================================================
 	// Props
 	// =========================================================================
@@ -51,6 +60,10 @@
 		height?: number
 		/** Crossover fill configuration (optional) */
 		crossoverFill?: CrossoverFillConfig
+		/** Well name to display in header */
+		wellName?: string
+		/** Callback when depth range changes via zoom/pan */
+		onDepthRangeChange?: (range: DepthRange) => void
 	}
 
 	let {
@@ -58,7 +71,9 @@
 		depthRange,
 		width = 200,
 		height = 600,
-		crossoverFill
+		crossoverFill,
+		wellName,
+		onDepthRangeChange
 	}: Props = $props()
 
 	// =========================================================================
@@ -66,14 +81,20 @@
 	// =========================================================================
 
 	const HEADER_ROW_HEIGHT = 40
-	const PADDING = { top: 5, right: 5, bottom: 5, left: 5 }
+	const WELL_NAME_HEIGHT = 32
+	const DEPTH_AXIS_WIDTH = 45
+	const VALUE_LABEL_WIDTH = 70
+	const PADDING = { top: 5, right: VALUE_LABEL_WIDTH + 5, bottom: 5, left: DEPTH_AXIS_WIDTH }
 
 	// =========================================================================
 	// Derived Values
 	// =========================================================================
 
-	/** Total header height based on number of curves */
-	let headerHeight = $derived(Math.max(HEADER_ROW_HEIGHT, curvesData.length * HEADER_ROW_HEIGHT))
+	/** Total header height based on number of curves + optional well name */
+	let headerHeight = $derived(
+		(wellName ? WELL_NAME_HEIGHT : 0) +
+		Math.max(HEADER_ROW_HEIGHT, curvesData.length * HEADER_ROW_HEIGHT)
+	)
 
 	/** Chart dimensions (excluding header and padding) */
 	let chartWidth = $derived(width - PADDING.left - PADDING.right)
@@ -216,11 +237,90 @@
 	})
 
 	// =========================================================================
-	// SVG Rendering
+	// Crosshair State
+	// =========================================================================
+
+	let crosshairVisible = $state(false)
+	let crosshairX = $state(0)
+	let crosshairY = $state(0)
+	let crosshairDepth = $state(0)
+	let crosshairValues = $state<CrosshairValue[]>([])
+
+	/** Handle mouse move for crosshair tracking */
+	function handleMouseMove(event: MouseEvent) {
+		const target = event.currentTarget as SVGRectElement
+		const [mouseX, mouseY] = d3.pointer(event, target)
+
+		crosshairX = mouseX
+		crosshairY = mouseY
+
+		// Convert Y position to depth
+		crosshairDepth = yScale.invert(mouseY)
+
+		// Find value at this depth for each curve using bisect
+		crosshairValues = curveDataPoints.map(curve => {
+			const bisect = d3.bisector((d: WellLogDataPoint) => d.depth).center
+			const index = bisect(curve.points, crosshairDepth)
+			const point = curve.points[index]
+			return {
+				mnemonic: curve.config.mnemonic,
+				value: point?.value ?? NaN,
+				color: curve.config.color,
+				unit: curve.config.unit ?? ''
+			}
+		})
+	}
+
+	// =========================================================================
+	// SVG Rendering & Zoom
 	// =========================================================================
 
 	let svgElement: SVGSVGElement
+	let depthAxisEl: SVGGElement
 	let isInitialized = false
+
+	// Render depth axis using D3
+	$effect(() => {
+		if (!depthAxisEl || chartHeight <= 0) return
+
+		const axis = d3.axisLeft(yScale)
+			.ticks(Math.floor(chartHeight / 50))
+			.tickFormat(d => `${d}`)
+
+		d3.select(depthAxisEl)
+			.call(axis)
+			.selectAll('text')
+			.attr('fill', '#6b7280')
+			.attr('font-size', '10px')
+
+		d3.select(depthAxisEl)
+			.selectAll('line')
+			.attr('stroke', '#d1d5db')
+
+		d3.select(depthAxisEl)
+			.select('.domain')
+			.attr('stroke', '#d1d5db')
+	})
+
+	// Set up zoom behavior
+	$effect(() => {
+		if (!svgElement || !onDepthRangeChange) return
+
+		const zoom = d3.zoom<SVGSVGElement, unknown>()
+			.scaleExtent([0.5, 10])
+			.on('zoom', (event) => {
+				const newYScale = event.transform.rescaleY(yScale)
+				const newMin = newYScale.domain()[0]
+				const newMax = newYScale.domain()[1]
+				onDepthRangeChange({ min: newMin, max: newMax })
+			})
+
+		d3.select(svgElement).call(zoom)
+
+		return () => {
+			d3.select(svgElement).on('.zoom', null)
+		}
+	})
 
 	$effect(() => {
 		if (!svgElement || isInitialized) return
@@ -238,6 +338,14 @@
 <div class="d3-welllog-track" style="width: {width}px; height: {height}px;">
 	<!-- Stacked Headers (one per curve) -->
 	<div class="track-headers" style="height: {headerHeight}px;">
+		<!-- Well Name Header (if provided) -->
+		{#if wellName}
+			<div class="well-name-header">
+				{wellName}
+			</div>
+		{/if}
+
+		<!-- Curve Headers -->
 		{#each curvesData as curve, i (curve.config.curveId)}
 			<div class="header-row" style="border-bottom-color: {curve.config.color};">
 				<div class="header-title">{curve.config.mnemonic}</div>
@@ -263,6 +371,13 @@
 		height={height - headerHeight}
 		class="track-chart"
 	>
+		<!-- Depth Axis -->
+		<g
+			bind:this={depthAxisEl}
+			class="depth-axis"
+			transform="translate({PADDING.left - 2}, {PADDING.top})"
+		></g>
+
 		<g transform="translate({PADDING.left}, {PADDING.top})">
 			<!-- Background grid -->
 			<g class="grid vertical-grid">
@@ -338,6 +453,83 @@
 					/>
 				{/if}
 			{/each}
+
+			<!-- Crosshair (when visible) -->
+			{#if crosshairVisible && chartHeight > 0}
+				<!-- Horizontal crosshair line -->
+				<line
+					class="crosshair-line"
+					x1={0}
+					y1={crosshairY}
+					x2={chartWidth}
+					y2={crosshairY}
+					stroke="#6b7280"
+					stroke-width="1"
+					stroke-dasharray="4,2"
+					pointer-events="none"
+				/>
+				<!-- Vertical crosshair line -->
+				<line
+					class="crosshair-line"
+					x1={crosshairX}
+					y1={0}
+					x2={crosshairX}
+					y2={chartHeight}
+					stroke="#6b7280"
+					stroke-width="1"
+					stroke-dasharray="4,2"
+					pointer-events="none"
+				/>
+
+				<!-- Depth label on Y-axis -->
+				<g class="depth-label" transform="translate({-DEPTH_AXIS_WIDTH + 2}, {crosshairY})">
+					<rect
+						x={-2}
+						y={-10}
+						width={DEPTH_AXIS_WIDTH - 4}
+						height={20}
+						fill="#1f2937"
+						rx="2"
+					/>
+					<text
+						fill="white"
+						font-size="10"
+						text-anchor="end"
+						x={DEPTH_AXIS_WIDTH - 10}
+						dy="4"
+					>{crosshairDepth.toFixed(1)}</text>
+				</g>
+
+				<!-- Value labels for each curve (on right side) -->
+				{#each crosshairValues as cv, i}
+					{#if !isNaN(cv.value)}
+						<g class="value-label" transform="translate({chartWidth + 4}, {8 + i * 18})">
+							<rect
+								x={0}
+								y={-8}
+								width={VALUE_LABEL_WIDTH - 8}
+								height={16}
+								fill={cv.color}
+								rx="2"
+							/>
+							<text fill="white" font-size="9" font-weight="500" dx="4" dy="4">
+								{cv.mnemonic}: {cv.value.toFixed(1)}
+							</text>
+						</g>
+					{/if}
+				{/each}
+			{/if}
+
+			<!-- Mouse capture overlay (must be last for pointer events) -->
+			<rect
+				class="mouse-overlay"
+				width={chartWidth}
+				height={chartHeight}
+				fill="transparent"
+				onmousemove={handleMouseMove}
+				onmouseenter={() => crosshairVisible = true}
+				onmouseleave={() => crosshairVisible = false}
+			/>
 		</g>
 	</svg>
 </div>
@@ -357,6 +549,19 @@
 		border-bottom: 1px solid #e5e7eb;
 		background: #f9fafb;
 		overflow: hidden;
+	}
+
+	.well-name-header {
+		background: white;
+		color: #111827;
+		font-size: 12px;
+		font-weight: 600;
+		padding: 8px 12px;
+		text-align: center;
+		border-bottom: 1px solid #e5e7eb;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.header-row {
@@ -415,6 +620,7 @@
 
 	.track-chart {
 		flex: 1;
+		cursor: crosshair;
 	}
 
 	.curve-line {
@@ -423,5 +629,32 @@
 
 	.crossover-fill {
 		pointer-events: none;
+	}
+
+	.crosshair-line {
+		pointer-events: none;
+	}
+
+	.depth-label,
+	.value-label {
+		pointer-events: none;
+	}
+
+	.mouse-overlay {
+		cursor: crosshair;
+	}
+
+	/* Style depth axis */
+	:global(.depth-axis .tick line) {
+		stroke: #d1d5db;
+	}
+
+	:global(.depth-axis .tick text) {
+		fill: #6b7280;
+		font-size: 10px;
+	}
+
+	:global(.depth-axis .domain) {
+		stroke: #d1d5db;
 	}
 </style>

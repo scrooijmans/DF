@@ -458,6 +458,18 @@
 					width={width}
 					height={height - 36}
 					crossoverFill={d3Config?.crossoverFill}
+					wellName={pane.title !== 'D3 Well Log' ? pane.title : undefined}
+					onDepthRangeChange={(range) => {
+						if (d3Config) {
+							const updatedConfig: D3WellLogConfig = {
+								...d3Config,
+								depthRange: { ...d3Config.depthRange, min: range.min, max: range.max, autoScale: false }
+							}
+							workspaceManager.updatePaneConfig(pane.id, {
+								chartConfig: updatedConfig as unknown as import('$lib/charts/types').ChartConfig
+							})
+						}
+					}}
 				/>
 			{:else if hasLegacySingleCurve}
 				<!-- Legacy single-curve mode (backwards compatibility) -->
@@ -483,6 +495,18 @@
 					}}
 					width={width}
 					height={height - 36}
+					wellName={pane.title !== 'D3 Well Log' ? pane.title : undefined}
+					onDepthRangeChange={(range) => {
+						if (d3Config) {
+							const updatedConfig: D3WellLogConfig = {
+								...d3Config,
+								depthRange: { ...d3Config.depthRange, min: range.min, max: range.max, autoScale: false }
+							}
+							workspaceManager.updatePaneConfig(pane.id, {
+								chartConfig: updatedConfig as unknown as import('$lib/charts/types').ChartConfig
+							})
+						}
+					}}
 				/>
 			{:else}
 				<!-- Empty state - no data loaded -->
