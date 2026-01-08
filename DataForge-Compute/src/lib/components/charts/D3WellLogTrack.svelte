@@ -52,8 +52,10 @@
 	interface Props {
 		/** Array of curve data (config + segments) */
 		curvesData: CurveData[]
-		/** Depth range for Y-axis */
+		/** Depth range for Y-axis (current visible range) */
 		depthRange: DepthRange
+		/** Full data extent (max zoom-out bounds) - if not provided, calculated from curve data */
+		dataExtent?: DepthRange
 		/** Track width in pixels */
 		width?: number
 		/** Track height in pixels */
@@ -69,6 +71,7 @@
 	let {
 		curvesData,
 		depthRange,
+		dataExtent: dataExtentProp,
 		width = 200,
 		height = 600,
 		crossoverFill,
@@ -89,6 +92,32 @@
 	// =========================================================================
 	// Derived Values
 	// =========================================================================
+
+	/** Maximum depth bounds from all curve data (used for zoom constraints) */
+	let dataExtent = $derived.by(() => {
+		// Use prop if provided
+		if (dataExtentProp) return dataExtentProp
+
+		// Calculate from curve data
+		let minDepth = Infinity
+		let maxDepth = -Infinity
+
+		for (const curve of curvesData) {
+			for (const segment of curve.segments) {
+				for (const depth of segment.depths) {
+					minDepth = Math.min(minDepth, depth)
+					maxDepth = Math.max(maxDepth, depth)
+				}
+			}
+		}
+
+		// Fallback to depthRange if no curve data
+		if (!isFinite(minDepth) || !isFinite(maxDepth)) {
+			return depthRange
+		}
+
+		return { min: minDepth, max: maxDepth }
+	})
 
 	/** Total header height based on number of curves + optional well name */
 	let headerHeight = $derived(
@@ -302,23 +331,66 @@
 			.attr('stroke', '#d1d5db')
 	})
 
-	// Set up zoom behavior
+	// Set up zoom behavior with constraints
 	$effect(() => {
-		if (!svgElement || !onDepthRangeChange) return
+		if (!svgElement || !onDepthRangeChange || chartHeight <= 0) return
+
+		// Create base scale for the full data extent (used for zoom calculations)
+		const baseYScale = d3.scaleLinear()
+			.domain([dataExtent.min, dataExtent.max])
+			.range([0, chartHeight])
 
 		const zoom = d3.zoom<SVGSVGElement, unknown>()
-			.scaleExtent([0.5, 10])
+			// Min scale 1 = can't zoom out beyond full data extent, max 10x zoom in
+			.scaleExtent([1, 10])
+			// Custom constraint to keep view within data bounds and Y-only zoom
+			.constrain((transform, extent, translateExtent) => {
+				// Get the domain that would result from this transform
+				const rescaled = transform.rescaleY(baseYScale)
+				const [yMin, yMax] = rescaled.domain()
+
+				let adjustedY = transform.y
+
+				// Clamp to data extent bounds
+				if (yMin < dataExtent.min) {
+					// Shift transform down to align with min bound
+					const dy = baseYScale(dataExtent.min) - baseYScale(yMin)
+					adjustedY = transform.y + dy
+				} else if (yMax > dataExtent.max) {
+					// Shift transform up to align with max bound
+					const dy = baseYScale(dataExtent.max) - baseYScale(yMax)
+					adjustedY = transform.y + dy
+				}
+
+				// Force X translation to 0 (Y-only zoom)
+				return d3.zoomIdentity
+					.translate(0, adjustedY)
+					.scale(transform.k)
+			})
 			.on('zoom', (event) => {
-				const newYScale = event.transform.rescaleY(yScale)
+				const newYScale = event.transform.rescaleY(baseYScale)
 				const newMin = newYScale.domain()[0]
 				const newMax = newYScale.domain()[1]
 				onDepthRangeChange({ min: newMin, max: newMax })
 			})
 
-		d3.select(svgElement).call(zoom)
+		d3.select(svgElement)
+			.call(zoom)
+			// Override double-click to reset to full data extent
+			.on('dblclick.zoom', () => {
+				// Reset to full data extent
+				onDepthRangeChange({ min: dataExtent.min, max: dataExtent.max })
+
+				// Animate transform back to identity
+				d3.select(svgElement)
+					.transition()
+					.duration(300)
+					.call(zoom.transform, d3.zoomIdentity)
+			})
 
 		return () => {
 			d3.select(svgElement).on('.zoom', null)
+			d3.select(svgElement).on('dblclick.zoom', null)
 		}
 	})
 

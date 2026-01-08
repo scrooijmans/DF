@@ -455,6 +455,10 @@
 							? multiCurveData.combined_depth_range[1]
 							: (d3Config?.depthRange?.max ?? multiCurveData.combined_depth_range[1])
 					}}
+					dataExtent={{
+						min: multiCurveData.combined_depth_range[0],
+						max: multiCurveData.combined_depth_range[1]
+					}}
 					width={width}
 					height={height - 36}
 					crossoverFill={d3Config?.crossoverFill}
@@ -490,6 +494,10 @@
 						segments: segmentedChartData.segments
 					}]}
 					depthRange={{
+						min: segmentedChartData.depth_range?.[0] ?? 0,
+						max: segmentedChartData.depth_range?.[1] ?? 1000
+					}}
+					dataExtent={{
 						min: segmentedChartData.depth_range?.[0] ?? 0,
 						max: segmentedChartData.depth_range?.[1] ?? 1000
 					}}
