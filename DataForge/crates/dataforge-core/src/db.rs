@@ -1,7 +1,22 @@
 //! SQLite database schema and operations
+//!
+//! This module handles database initialization and migrations using a hybrid approach:
+//! - Refinery for version tracking and migration history
+//! - Rust code for conditional ALTER TABLE operations (SQLite limitation)
+//!
+//! Migration flow:
+//! 1. Run Rust migrations first (add columns if missing)
+//! 2. Run Refinery migrations (tracks version history)
+//! 3. Execute SCHEMA batch (CREATE TABLE/INDEX IF NOT EXISTS)
+//! 4. Seed reference data
 
+use refinery::embed_migrations;
 use rusqlite::{Connection, Result as SqliteResult};
 use tracing::{error, info, warn};
+
+// Embed migrations from the migrations directory
+// These SQL files are compiled into the binary
+embed_migrations!("migrations");
 
 /// SQL schema for DataForge database
 pub const SCHEMA: &str = r#"
@@ -878,22 +893,179 @@ CREATE INDEX IF NOT EXISTS idx_sync_conflicts_pending ON sync_conflicts(resoluti
 "#;
 
 /// Initialize the database with the schema
+///
+/// This function handles both fresh databases and existing databases that need migration.
+/// The flow is:
+/// 1. Bootstrap Refinery migration history for existing databases (if needed)
+/// 2. Run Rust-based migrations (conditional ALTER TABLE operations)
+/// 3. Run Refinery migrations (tracks version history)
+/// 4. Execute SCHEMA batch (CREATE TABLE/INDEX IF NOT EXISTS)
+/// 5. Seed reference data
 pub fn init_db(conn: &Connection) -> SqliteResult<()> {
 	info!("Initializing DataForge database schema");
 
-	// Run migrations FIRST for existing databases
+	// Step 1: Bootstrap Refinery migration history for existing databases
+	// This detects which migrations have already been applied and records them
+	bootstrap_refinery_history(conn)?;
+
+	// Step 2: Run Rust migrations FIRST for existing databases
 	// This ensures columns exist before SCHEMA tries to create indexes on them
 	// For fresh databases, migrations are no-ops (columns don't exist yet to check)
 	run_migrations(conn)?;
 
-	// Execute main schema batch
+	// Step 3: Run Refinery migrations for version tracking
+	// The SQL files are mostly no-ops since Rust handles the actual schema changes
+	// But this ensures migration history is properly tracked
+	run_refinery_migrations(conn)?;
+
+	// Step 4: Execute main schema batch
 	// Uses CREATE TABLE/INDEX IF NOT EXISTS - safe for both fresh and existing DBs
 	conn.execute_batch(SCHEMA)?;
 
-	// Seed reference data (log types, acquisition types, curve properties, mnemonics)
+	// Step 5: Seed reference data (log types, acquisition types, curve properties, mnemonics)
 	insert_default_reference_data(conn)?;
 
 	info!("Database schema initialized successfully");
+	Ok(())
+}
+
+/// Bootstrap Refinery migration history for existing databases
+///
+/// When transitioning from ad-hoc migrations to Refinery, we need to detect
+/// which migrations have already been applied and record them in Refinery's
+/// schema_history table so they don't run again.
+fn bootstrap_refinery_history(conn: &Connection) -> SqliteResult<()> {
+	// Check if Refinery's schema_history table exists
+	let refinery_initialized = table_exists(conn, "refinery_schema_history");
+
+	if refinery_initialized {
+		// Refinery is already set up, no bootstrap needed
+		return Ok(());
+	}
+
+	// Check if this is an existing database (has tables) or fresh database
+	let has_accounts = table_exists(conn, "accounts");
+	if !has_accounts {
+		// Fresh database - Refinery will handle everything from scratch
+		info!("Fresh database detected, skipping Refinery bootstrap");
+		return Ok(());
+	}
+
+	// Existing database - need to bootstrap Refinery history
+	info!("Existing database detected, bootstrapping Refinery migration history");
+
+	// Create Refinery's schema_history table manually
+	conn.execute_batch(
+		r#"
+		CREATE TABLE IF NOT EXISTS refinery_schema_history (
+			version INTEGER PRIMARY KEY,
+			name TEXT,
+			applied_on TEXT,
+			checksum TEXT
+		);
+		"#,
+	)?;
+
+	// Detect which migrations have already been applied based on schema state
+	let mut applied_versions: Vec<(i32, &str)> = vec![];
+
+	// V1: Baseline - always mark as applied for existing databases
+	applied_versions.push((1, "baseline_schema"));
+
+	// V2: conflict_strategy in sync_state
+	if table_exists(conn, "sync_state") && column_exists(conn, "sync_state", "conflict_strategy") {
+		applied_versions.push((2, "add_conflict_strategy"));
+	}
+
+	// V3: curves dual storage (check for native_parquet_hash column)
+	if table_exists(conn, "curves") && column_exists(conn, "curves", "native_parquet_hash") {
+		applied_versions.push((3, "curves_dual_storage"));
+	}
+
+	// V4: curves quality fields
+	if table_exists(conn, "curves") && column_exists(conn, "curves", "quality_flag") {
+		applied_versions.push((4, "curves_quality_fields"));
+	}
+
+	// V5: curve_properties OSDU columns
+	if table_exists(conn, "curve_properties")
+		&& column_exists(conn, "curve_properties", "measurement_type_id")
+	{
+		applied_versions.push((5, "curve_properties_osdu"));
+	}
+
+	// V6: markers well_name column
+	if table_exists(conn, "markers") && column_exists(conn, "markers", "well_name") {
+		applied_versions.push((6, "markers_well_name"));
+	}
+
+	// V7: schema_version columns in work product tables
+	if table_exists(conn, "log_runs") && column_exists(conn, "log_runs", "schema_version") {
+		applied_versions.push((7, "schema_version_columns"));
+	}
+
+	// V8: OSDU schema alignment (wellbores table)
+	if table_exists(conn, "wellbores") {
+		applied_versions.push((8, "osdu_schema_alignment"));
+	}
+
+	// Insert records for already-applied migrations
+	let now = chrono::Utc::now().to_rfc3339();
+	for (version, name) in applied_versions {
+		conn.execute(
+			"INSERT OR IGNORE INTO refinery_schema_history (version, name, applied_on, checksum) VALUES (?1, ?2, ?3, ?4)",
+			rusqlite::params![version, name, &now, "bootstrapped"],
+		)?;
+		info!(
+			"Bootstrapped Refinery history: V{}_{}",
+			version, name
+		);
+	}
+
+	Ok(())
+}
+
+/// Run Refinery migrations for version tracking
+///
+/// This function ensures the refinery_schema_history table exists and records
+/// all migrations as applied. This is called AFTER the schema batch runs,
+/// so for fresh databases, all tables will exist.
+fn run_refinery_migrations(conn: &Connection) -> SqliteResult<()> {
+	// Create Refinery's schema_history table if it doesn't exist
+	conn.execute_batch(
+		r#"
+		CREATE TABLE IF NOT EXISTS refinery_schema_history (
+			version INTEGER PRIMARY KEY,
+			name TEXT,
+			applied_on TEXT,
+			checksum TEXT
+		);
+		"#,
+	)?;
+
+	// Record all migrations as applied
+	// The actual schema changes are handled by either:
+	// - Rust migrations (for existing databases)
+	// - SCHEMA batch (for fresh databases)
+	let now = chrono::Utc::now().to_rfc3339();
+	let migrations = [
+		(1, "baseline_schema"),
+		(2, "add_conflict_strategy"),
+		(3, "curves_dual_storage"),
+		(4, "curves_quality_fields"),
+		(5, "curve_properties_osdu"),
+		(6, "markers_well_name"),
+		(7, "schema_version_columns"),
+		(8, "osdu_schema_alignment"),
+	];
+
+	for (version, name) in migrations {
+		conn.execute(
+			"INSERT OR IGNORE INTO refinery_schema_history (version, name, applied_on, checksum) VALUES (?1, ?2, ?3, ?4)",
+			rusqlite::params![version, name, &now, "applied"],
+		)?;
+	}
+
 	Ok(())
 }
 

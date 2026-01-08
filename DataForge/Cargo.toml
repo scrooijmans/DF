@@ -37,6 +37,7 @@ lazy_static = "1.5"
 # =============================================================================
 rusqlite = { version = "0.31", features = ["bundled", "blob", "backup"] }
 duckdb = { version = "1.0", features = ["bundled"] }
+refinery = { version = "0.8", features = ["rusqlite"] }
 
 # =============================================================================
 # PARQUET / ARROW

@@ -14,6 +14,7 @@ unit-conversions.workspace = true
 # Database
 rusqlite.workspace = true
 duckdb.workspace = true
+refinery.workspace = true
 
 # Parquet/Arrow
 arrow.workspace = true
