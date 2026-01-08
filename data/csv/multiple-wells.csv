@@ -1,0 +1,16 @@
+well_name,field,operator,company,latitude,longitude,elevation,spud_date,completion_date,total_depth,status,coordinate_system
+Well-001,North Field,OilCorp,OilCorp Inc,40.7128,-74.0060,100.5,2023-01-15,2023-03-20,2500.0,active,WGS84
+Well-002,South Field,GasCo,GasCo Ltd,40.7589,-73.9851,95.2,2023-02-10,2023-04-15,3200.5,active,WGS84
+Well-003,East Field,PetroInc,PetroInc Corp,40.6892,-73.9442,110.8,2023-01-25,2023-03-30,1800.0,completed,WGS84
+Well-004,West Field,DrillCorp,DrillCorp Ltd,40.7505,-74.0014,88.3,2022-12-05,2023-02-10,4100.0,active,WGS84
+Well-005,Central Field,EnergyLtd,EnergyLtd Inc,40.7282,-73.7949,105.7,2023-03-01,2023-05-05,2900.5,drilling,WGS84
+Well-006,North Field,OilCorp,OilCorp Inc,40.7156,-74.0123,98.1,2022-11-20,2023-01-25,2200.0,abandoned,WGS84
+Well-007,South Field,GasCo,GasCo Ltd,40.7611,-73.9789,92.4,2023-02-28,2023-04-30,3500.0,active,WGS84
+Well-008,East Field,PetroInc,PetroInc Corp,40.6823,-73.9512,115.2,2023-01-10,2023-03-15,1950.0,suspended,WGS84
+Well-009,West Field,DrillCorp,DrillCorp Ltd,40.7478,-73.9987,91.6,2022-12-15,2023-02-20,3800.0,active,WGS84
+Well-010,Central Field,EnergyLtd,EnergyLtd Inc,40.7315,-73.8012,108.9,2023-03-15,2023-05-20,3100.0,completed,WGS84
+Well-011,North Field,OilCorp,OilCorp Inc,40.7098,-74.0089,96.7,2022-10-30,2023-01-05,2400.0,plugged,WGS84
+Well-012,South Field,GasCo,GasCo Ltd,40.7634,-73.9756,89.8,2023-02-05,2023-04-10,3300.0,active,WGS84
+Well-013,East Field,PetroInc,PetroInc Corp,40.6754,-73.9581,118.5,2023-01-20,2023-03-25,2100.0,completed,WGS84
+Well-014,West Field,DrillCorp,DrillCorp Ltd,40.7451,-73.9960,94.2,2022-12-25,2023-02-28,3900.0,active,WGS84
+Well-015,Central Field,EnergyLtd,EnergyLtd Inc,40.7348,-73.8075,111.3,2023-03-10,2023-05-15,2800.0,drilling,WGS84

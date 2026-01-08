@@ -25,6 +25,7 @@
 		HistogramConfig,
 		CrossPlotConfig,
 		WellLogConfig,
+		D3WellLogConfig,
 		AxisBinding,
 		SeriesStyle,
 	} from '$lib/panes/chart-configs';
@@ -34,6 +35,7 @@
 		createDefaultHistogramConfig,
 		createDefaultCrossPlotConfig,
 		createDefaultWellLogConfig,
+		createDefaultD3WellLogConfig,
 		createDefaultCorrelationConfig,
 		COLOR_PRESETS,
 		getChartTypeName,
@@ -65,6 +67,14 @@
 	import { loadCurveData, loadSegmentedCurveData } from '$lib/stores/dataStore';
 	import { curveDataToFrame } from '$lib/charts/types';
 	import CurveSelector from '$lib/components/panes/CurveSelector.svelte';
+	import {
+		SingleWellDataTab,
+		MultiWellDataTab,
+		CorrelationDataTab,
+		D3WellLogStyleSection,
+		DepthSettingsSection,
+		XAxisRangeSection
+	} from '$lib/components/charts/settings';
 
 	type TabId = 'data' | 'axes' | 'style' | 'display' | 'advanced' | 'wellTops';
 
@@ -325,6 +335,8 @@
 			case PaneType.WellLog:
 			case PaneType.LinkedCharts:
 				return createDefaultWellLogConfig();
+			case PaneType.D3WellLog:
+				return createDefaultD3WellLogConfig();
 			case PaneType.Correlation:
 				return createDefaultCorrelationConfig();
 			default:
@@ -758,6 +770,63 @@
 			onSegmentedDataChange?.(null);
 		} finally {
 			isLoadingData = false;
+		}
+	}
+
+	// --- D3 Well Log Helpers ---
+
+	/**
+	 * Update D3 Well Log curve binding and load segmented data
+	 */
+	async function updateD3WellLogCurve(binding: AxisBinding): Promise<void> {
+		if (!chartConfig) return;
+		const d3WellLogConfig = chartConfig as D3WellLogConfig;
+		const newConfig = { ...d3WellLogConfig, curve: binding };
+		onConfigChange(newConfig);
+		await loadD3WellLogData(newConfig);
+	}
+
+	/**
+	 * Load D3 well log data (segmented format only - D3 charts don't need frame format)
+	 */
+	async function loadD3WellLogData(currentConfig: D3WellLogConfig): Promise<void> {
+		const curveId = currentConfig.curve?.curveId;
+
+		if (!curveId) {
+			onSegmentedDataChange?.(null);
+			return;
+		}
+
+		isLoadingData = true;
+
+		try {
+			const segmentedData = await loadSegmentedCurveData(curveId);
+
+			if (segmentedData && segmentedData.segments.length > 0) {
+				onSegmentedDataChange?.(segmentedData);
+			} else {
+				onSegmentedDataChange?.(null);
+			}
+		} catch (error) {
+			console.error('[ChartSettingsDialog] Failed to load D3 well log data:', error);
+			onSegmentedDataChange?.(null);
+		} finally {
+			isLoadingData = false;
+		}
+	}
+
+	/**
+	 * Handle single-well axis change - routes to correct handler based on chart type
+	 */
+	async function handleSingleWellAxisChange(key: string, binding: AxisBinding | null): Promise<void> {
+		if (!chartConfig || !binding) return;
+
+		if (chartConfig.type === 'histogram' && key === 'dataCurve') {
+			await updateAxis('dataCurve', binding);
+		} else if (chartConfig.type === 'welllog' && key === 'curve') {
+			await updateWellLogCurve(binding);
+		} else if (chartConfig.type === 'd3-welllog' && key === 'curve') {
+			await updateD3WellLogCurve(binding);
 		}
 	}
 
@@ -1439,65 +1508,15 @@
 								{/if}
 							</div>
 						{:else}
-							<!-- Histogram and WellLog: Single well selection -->
-							<div class="config-section">
-								<h4 class="section-title">Data Source</h4>
-
-								<div class="field-group">
-									<label class="field-label" for="well-selector">Well</label>
-									<select
-										id="well-selector"
-										class="field-select"
-										value={well?.id ?? ''}
-										onchange={(e) => onWellChange?.(e.currentTarget.value)}
-									>
-										<option value="">Select a well...</option>
-										{#each wells as w (w.id)}
-											<option value={w.id}>{w.name} ({w.curve_count} curves)</option>
-										{/each}
-									</select>
-								</div>
-
-								{#if !well}
-									<div class="hint-box">
-										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-											<path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0z" />
-										</svg>
-										<span>Select a well to choose curves for plotting</span>
-									</div>
-								{/if}
-							</div>
-
-							{#if well}
-								<!-- Curve Bindings based on chart type -->
-								{#if chartConfig.type === 'histogram'}
-									{@const histConfig = chartConfig as HistogramConfig}
-									<div class="config-section">
-										<h4 class="section-title">Curve Binding</h4>
-										<CurveSelector
-											label="Data Curve"
-											binding={histConfig.dataCurve}
-											{curves}
-											{well}
-											required
-											onChange={(binding) => updateAxis('dataCurve', binding)}
-										/>
-									</div>
-								{:else if chartConfig.type === 'welllog'}
-									{@const wellLogConfig = chartConfig as WellLogConfig}
-									<div class="config-section">
-										<h4 class="section-title">Curve Binding</h4>
-										<CurveSelector
-											label="Curve"
-											binding={wellLogConfig.curve}
-											{curves}
-											{well}
-											required
-											onChange={(binding) => updateWellLogCurve(binding)}
-										/>
-									</div>
-								{/if}
-							{/if}
+							<!-- Histogram, WellLog, D3WellLog: Single well selection -->
+							<SingleWellDataTab
+								config={chartConfig as HistogramConfig | WellLogConfig | D3WellLogConfig}
+								{wells}
+								{curves}
+								selectedWell={well}
+								onWellChange={(wellId) => onWellChange?.(wellId)}
+								onAxisChange={handleSingleWellAxisChange}
+							/>
 						{/if}
 					</div>
 				{/if}
@@ -1582,6 +1601,25 @@
 									<span>Show Depth Track</span>
 								</label>
 							</div>
+						{:else if chartConfig.type === 'd3-welllog'}
+							{@const d3WellLogConfig = chartConfig as D3WellLogConfig}
+							<DepthSettingsSection
+								depthRange={d3WellLogConfig.depthRange}
+								onDepthRangeChange={(updates) => onConfigChange({
+									...d3WellLogConfig,
+									depthRange: { ...d3WellLogConfig.depthRange, ...updates }
+								})}
+								idPrefix="d3-depth"
+							/>
+
+							<XAxisRangeSection
+								xMin={d3WellLogConfig.xMin ?? 0}
+								xMax={d3WellLogConfig.xMax ?? 150}
+								onXMinChange={(value) => onConfigChange({ ...d3WellLogConfig, xMin: value })}
+								onXMaxChange={(value) => onConfigChange({ ...d3WellLogConfig, xMax: value })}
+								title="X-Axis Range (Curve Value)"
+								idPrefix="d3-x"
+							/>
 						{:else if chartConfig.type === 'correlation'}
 							{@const correlationConfig = chartConfig as CorrelationConfig}
 							<div class="config-section">
@@ -1999,6 +2037,11 @@
 									<span>Fill Area</span>
 								</label>
 							</div>
+						{:else if chartConfig.type === 'd3-welllog'}
+							<D3WellLogStyleSection
+								config={chartConfig as D3WellLogConfig}
+								onConfigChange={(config) => onConfigChange(config)}
+							/>
 						{:else}
 							<div class="config-section">
 								<p class="hint-text">Style options are not available for this chart type.</p>

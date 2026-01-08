@@ -40,7 +40,10 @@
 	}: Props = $props();
 
 	/** Link group ID for chart synchronization */
-	const linkGroup = $derived(config.id);
+	const linkGroup = $derived(config?.id ?? 'default');
+
+	/** Wells array with defensive null check */
+	let wells = $derived(config?.wells ?? []);
 
 	/** Current cursor depth (for crosshair sync) */
 	let cursorDepth = $state<number | null>(null);
@@ -94,10 +97,10 @@
 <div class="correlation-panel" style="height: {height}px">
 	<!-- Header -->
 	<div class="panel-header">
-		<h3 class="panel-title">{config.title || 'Well Correlation'}</h3>
+		<h3 class="panel-title">{config?.title || 'Well Correlation'}</h3>
 		<div class="panel-info">
-			<span class="info-badge">{config.wells.length} well{config.wells.length !== 1 ? 's' : ''}</span>
-			{#if config.enableZoom}
+			<span class="info-badge">{wells.length} well{wells.length !== 1 ? 's' : ''}</span>
+			{#if config?.enableZoom}
 				<span class="info-badge sync">Sync Enabled</span>
 			{/if}
 		</div>
@@ -105,7 +108,7 @@
 
 	<!-- Main content area -->
 	<div class="panel-content">
-		{#if config.wells.length === 0}
+		{#if wells.length === 0}
 			<!-- Empty state -->
 			<div class="empty-state">
 				<svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,24 +128,24 @@
 				<DepthTrack
 					depthRange={effectiveDepthRange}
 					height={height - 60}
-					inverted={config.depthRange.inverted}
+					inverted={config?.depthRange?.inverted ?? false}
 				/>
 			</div>
 
 			<!-- Well columns -->
 			<div class="wells-container">
-				{#each config.wells as well (well.wellId)}
-					<div class="well-column-wrapper" style="width: {getWellColumnWidth(well.tracks.length)}; min-width: {config.layout?.trackWidth ?? 140}px">
+				{#each wells as well (well.wellId)}
+					<div class="well-column-wrapper" style="width: {getWellColumnWidth(well.tracks.length)}; min-width: {config?.layout?.trackWidth ?? 140}px">
 						<WellColumn
 							{well}
 							{curveData}
 							{depthRange}
 							height={height - 60}
 							{linkGroup}
-							wellTops={config.wellTops.filter(t => !t.wellId || t.wellId === well.wellId)}
+							wellTops={(config?.wellTops ?? []).filter(t => !t.wellId || t.wellId === well.wellId)}
 							{cursorDepth}
-							trackWidth={config.layout?.trackWidth}
-							crossover={config.crossover}
+							trackWidth={config?.layout?.trackWidth}
+							crossover={config?.crossover}
 						/>
 					</div>
 				{/each}

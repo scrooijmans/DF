@@ -1,0 +1,37 @@
+dTect V6.6
+Survey defaults
+Fri 14 Aug 2020, 10:35:30
+!
+Survey defaults
+Default.2D Cube: 100010.118
+Default.3D HorizonCube: 100020.86
+Default.Cube: 100010.4
+Default.Cube.Steering: 100010.9
+Default.Fault: 100020.12
+Default.FaultStickSet: 100020.33
+Default.Horizon: 100020.9
+Default.Stratigraphic Framework: 100090.2
+Default.Wavelet: 100010.71
+Default.Well: 100050.4
+Show depth in feet: No
+Z Scale.TWT: 17.21868515
+Z Stretch: 35.80964279
+UOM.Sonic travel time: Microseconds/foot
+UOM.Density: Gram/cm3
+UOM.Gamma Ray: API
+UOM.Impedance: Meter/second x Kg/m3
+UOM.Velocity: Meter/second
+UOM.Volumetrics: Fraction
+UOM.Distance/Depth: Meter
+UOM.Time: Milliseconds
+UOM.Elastic Ratio: Ratio
+UOM.Pressure-Weight: Pascal.Kg/m3
+UOM.Pressure: Pascal
+UOM.Temperature: Degrees Celcius
+UOM.Area: Square meter
+UOM.Resistivity: OhmMeter
+UOM.Electrical Potential: mVolt
+UOM.Volume: Cubic meters
+UOM.Compressibility: 1/Pascal
+UOM.Permeability: mDarcy
+!

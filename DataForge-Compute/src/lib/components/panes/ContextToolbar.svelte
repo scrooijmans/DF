@@ -4,55 +4,79 @@
 	 *
 	 * Displays different content based on what is currently selected:
 	 * - UDF selected: Shows UDF parameters and execution controls
-	 * - Chart pane selected: Shows hint to use settings dialog
+	 * - Chart pane selected: Shows inline chart settings (ChartSettingsPanel)
 	 * - Nothing selected: Shows placeholder with instructions
-	 *
-	 * Note: Chart configuration has moved to ChartSettingsDialog (TradingView-style).
 	 */
-	import type { CurveInfo, WellInfo } from '$lib/types';
-	import { selectionContext } from '$lib/panes/selection-context';
-	import ParameterForm from '$lib/components/ParameterForm.svelte';
-	import { PaneType } from '$lib/panes/layout-model';
+	import type { CurveInfo, WellInfo, SegmentedCurveData } from '$lib/types'
+	import type { ChartConfiguration } from '$lib/panes/chart-configs'
+	import { selectionContext } from '$lib/panes/selection-context'
+	import ParameterForm from '$lib/components/ParameterForm.svelte'
+	import ChartSettingsPanel from './ChartSettingsPanel.svelte'
+	import { PaneType } from '$lib/panes/layout-model'
 
 	interface Props {
 		/** Available wells */
-		wells: WellInfo[];
+		wells: WellInfo[]
 		/** Available curves for the selected well */
-		curves: CurveInfo[];
+		curves: CurveInfo[]
 		/** Selected well info */
-		well: WellInfo | null;
+		well: WellInfo | null
 		/** Callback when well selection changes */
-		onWellChange?: (wellId: string) => void;
+		onWellChange?: (wellId: string) => void
+		/** Callback when chart configuration changes */
+		onConfigChange?: (config: ChartConfiguration) => void
+		/** Callback when segmented data changes */
+		onSegmentedDataChange?: (data: SegmentedCurveData | null) => void
 	}
 
-	let { wells, curves, well, onWellChange }: Props = $props();
+	let {
+		wells,
+		curves,
+		well,
+		onWellChange,
+		onConfigChange,
+		onSegmentedDataChange
+	}: Props = $props()
 
 	/** Selection stores */
-	let selectionType = selectionContext.selectionType;
-	let selectedPane = selectionContext.selectedPane;
-	let selectedUdf = selectionContext.selectedUdf;
+	let selectionType = selectionContext.selectionType
+	let selectedPane = selectionContext.selectedPane
+	let selectedUdf = selectionContext.selectedUdf
+
+	/** Check if selected pane is a chart type that supports inline settings */
+	let isChartPane = $derived(
+		$selectedPane?.paneNode.paneType === PaneType.Histogram ||
+		$selectedPane?.paneNode.paneType === PaneType.WellLog ||
+		$selectedPane?.paneNode.paneType === PaneType.D3WellLog ||
+		$selectedPane?.paneNode.paneType === PaneType.LineChart ||
+		$selectedPane?.paneNode.paneType === PaneType.ScatterChart ||
+		$selectedPane?.paneNode.paneType === PaneType.CrossPlot ||
+		$selectedPane?.paneNode.paneType === PaneType.Correlation
+	)
 
 	/** Get chart type name for display */
 	function getChartTypeName(paneType: PaneType | undefined): string {
 		switch (paneType) {
 			case PaneType.LineChart:
-				return 'Line Chart';
+				return 'Line Chart'
 			case PaneType.ScatterChart:
-				return 'Scatter Chart';
+				return 'Scatter Chart'
 			case PaneType.Histogram:
-				return 'Histogram';
+				return 'Histogram'
 			case PaneType.CrossPlot:
-				return 'Cross Plot';
+				return 'Cross Plot'
 			case PaneType.WellLog:
-				return 'Well Log';
+				return 'Well Log'
+			case PaneType.D3WellLog:
+				return 'D3 Well Log'
 			case PaneType.LinkedCharts:
-				return 'Linked Charts';
+				return 'Linked Charts'
 			case PaneType.Correlation:
-				return 'Correlation';
+				return 'Correlation'
 			case PaneType.DataGrid:
-				return 'Data Grid';
+				return 'Data Grid'
 			default:
-				return 'Chart';
+				return 'Chart'
 		}
 	}
 </script>
@@ -87,8 +111,20 @@
 				<ParameterForm />
 			</div>
 		</div>
+	{:else if $selectionType === 'pane' && $selectedPane && isChartPane}
+		<!-- Chart Pane Selected - Show Inline Settings -->
+		<ChartSettingsPanel
+			pane={$selectedPane.paneNode}
+			config={$selectedPane.chartConfig ?? null}
+			{wells}
+			{curves}
+			{well}
+			onWellChange={(wellId) => onWellChange?.(wellId)}
+			onConfigChange={(config) => onConfigChange?.(config)}
+			onSegmentedDataChange={(data) => onSegmentedDataChange?.(data)}
+		/>
 	{:else if $selectionType === 'pane' && $selectedPane}
-		<!-- Pane Selected - Show hint to use settings dialog -->
+		<!-- Non-chart Pane Selected - Show basic info -->
 		<div class="toolbar-section">
 			<div class="section-header">
 				<span class="section-icon chart-icon">
@@ -103,12 +139,7 @@
 			</div>
 			<div class="section-content">
 				<div class="settings-hint">
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-						<path d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z" />
-					</svg>
-					<p>
-						Use the <strong>Settings</strong> button in the toolbar above to configure this chart.
-					</p>
+					<p>This pane type doesn't have configurable settings.</p>
 				</div>
 			</div>
 		</div>
@@ -138,7 +169,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background: var(--color-bg, #ffffff);
+		background: hsl(var(--background));
 	}
 
 	.empty-state {
@@ -148,7 +179,7 @@
 		justify-content: center;
 		padding: 32px 24px;
 		text-align: center;
-		color: var(--color-text-tertiary, #9ca3af);
+		color: hsl(var(--muted-foreground));
 		height: 100%;
 	}
 
@@ -160,7 +191,7 @@
 	.empty-state h3 {
 		font-size: 14px;
 		font-weight: 600;
-		color: var(--color-text-secondary, #6b7280);
+		color: hsl(var(--foreground));
 		margin: 0 0 8px 0;
 	}
 
@@ -172,7 +203,7 @@
 	}
 
 	.empty-state strong {
-		color: var(--color-text, #111827);
+		color: hsl(var(--foreground));
 	}
 
 	.toolbar-section {
@@ -187,8 +218,8 @@
 		align-items: center;
 		gap: 12px;
 		padding: 12px 16px;
-		border-bottom: 1px solid var(--color-border, #e5e7eb);
-		background: var(--color-bg-secondary, #f9fafb);
+		border-bottom: 1px solid hsl(var(--border));
+		background: hsl(var(--muted) / 0.3);
 	}
 
 	.section-icon {
@@ -202,18 +233,18 @@
 	}
 
 	.udf-icon {
-		background: var(--color-primary-light, #eff6ff);
-		color: var(--color-primary, #3b82f6);
+		background: hsl(var(--primary) / 0.1);
+		color: hsl(var(--primary));
 	}
 
 	.chart-icon {
-		background: var(--color-success-light, #f0fdf4);
-		color: var(--color-success, #22c55e);
+		background: hsl(142 76% 36% / 0.1);
+		color: hsl(142 76% 36%);
 	}
 
 	.curve-icon {
-		background: var(--color-warning-light, #fffbeb);
-		color: var(--color-warning, #f59e0b);
+		background: hsl(38 92% 50% / 0.1);
+		color: hsl(38 92% 50%);
 	}
 
 	.section-title-group {
@@ -224,7 +255,7 @@
 	.section-title {
 		font-size: 14px;
 		font-weight: 600;
-		color: var(--color-text, #111827);
+		color: hsl(var(--foreground));
 		margin: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -233,7 +264,7 @@
 
 	.section-subtitle {
 		font-size: 12px;
-		color: var(--color-text-tertiary, #9ca3af);
+		color: hsl(var(--muted-foreground));
 	}
 
 	.section-content {
@@ -248,13 +279,8 @@
 		justify-content: center;
 		padding: 32px 24px;
 		text-align: center;
-		color: var(--color-text-tertiary, #9ca3af);
+		color: hsl(var(--muted-foreground));
 		height: 100%;
-	}
-
-	.settings-hint svg {
-		margin-bottom: 16px;
-		opacity: 0.4;
 	}
 
 	.settings-hint p {
@@ -264,14 +290,10 @@
 		max-width: 200px;
 	}
 
-	.settings-hint strong {
-		color: var(--color-text, #111827);
-	}
-
 	.placeholder-text {
 		padding: 24px;
 		font-size: 13px;
-		color: var(--color-text-tertiary, #9ca3af);
+		color: hsl(var(--muted-foreground));
 		text-align: center;
 	}
 </style>

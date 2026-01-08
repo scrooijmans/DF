@@ -6,11 +6,12 @@
 
 use dataforge_core::blob::BlobStore;
 use dataforge_core::markers::{
-    ingest_marker_file, parse_marker_csv, MarkerIngestOptions, WellMatchMode,
+    ingest_marker_file, parse_marker_csv, MarkerIngestOptions, WellMapping, WellMatchMode,
 };
 use dataforge_core::models::MarkerColumnType;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -271,6 +272,25 @@ pub async fn ingest_marker_files(
         Uuid::parse_str(&member_id_str).map_err(|e| format!("Invalid member ID: {}", e))?
     };
 
+    // Build well_mappings HashMap from request
+    let well_mappings: HashMap<String, WellMapping> = request
+        .well_mappings
+        .into_iter()
+        .map(|entry| {
+            let well_id = entry.well_id.and_then(|id| Uuid::parse_str(&id).ok());
+            (
+                entry.well_name.clone(),
+                WellMapping {
+                    well_name: entry.well_name,
+                    well_id,
+                    create_new: entry.create_new,
+                },
+            )
+        })
+        .collect();
+
+    info!("Well mappings received: {:?}", well_mappings.keys().collect::<Vec<_>>());
+
     // Build ingest options
     let options = MarkerIngestOptions {
         set_name: request.set_name,
@@ -284,6 +304,7 @@ pub async fn ingest_marker_files(
         auto_create_wells: request.auto_create_wells,
         default_well_id: None,
         allow_unmapped_wells: request.allow_unmapped_wells,
+        well_mappings,
     };
 
     // Process first file

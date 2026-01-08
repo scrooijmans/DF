@@ -88,6 +88,7 @@ export enum PaneType {
 	Histogram = 'histogram',
 	CrossPlot = 'crossplot',
 	WellLog = 'welllog',
+	D3WellLog = 'd3-welllog',
 	DataGrid = 'data-grid',
 	LinkedCharts = 'linked-charts',
 	Correlation = 'correlation',
@@ -266,6 +267,8 @@ export function getDefaultPaneTitle(paneType: PaneType): string {
 			return 'Cross Plot';
 		case PaneType.WellLog:
 			return 'Well Log';
+		case PaneType.D3WellLog:
+			return 'D3 Well Log';
 		case PaneType.DataGrid:
 			return 'Data Grid';
 		case PaneType.LinkedCharts:

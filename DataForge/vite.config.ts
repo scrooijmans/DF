@@ -98,17 +98,7 @@ export default defineConfig({
 	// Build optimizations
 	build: {
 		// Increase chunk size warning limit
-		chunkSizeWarningLimit: 1000,
-		// Optimize chunk splitting
-		rollupOptions: {
-			output: {
-				manualChunks: {
-					// Separate vendor chunks for better caching
-					'vendor-svelte': ['svelte', '@sveltejs/kit'],
-					'vendor-tauri': ['@tauri-apps/api', '@tauri-apps/api/core']
-				}
-			}
-		}
+		chunkSizeWarningLimit: 1000
 	},
 	// ESBuild options for faster transforms
 	esbuild: {

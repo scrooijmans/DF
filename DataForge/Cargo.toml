@@ -108,6 +108,7 @@ tauri-build = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
 
 [profile.dev]
 opt-level = 0

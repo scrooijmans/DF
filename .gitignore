@@ -16,7 +16,7 @@ target/
 **/target/
 
 # Data files
-data/
+# data/
 
 # Environment
 .env

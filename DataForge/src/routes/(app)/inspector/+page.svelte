@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { invoke } from '@tauri-apps/api/core'
+	import { readText } from '@tauri-apps/plugin-clipboard-manager'
 	import DataGrid from '$lib/components/data/DataGrid.svelte'
 	import type { ColDef, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community'
+	import { parseClipboardText, convertValue } from '$lib/utils/clipboard-parser'
+	import {
+		validateClipboardData,
+		formatValidationErrors,
+		type ValidationError,
+		type ValidationResult
+	} from '$lib/utils/paste-validator'
 
 	// Types matching Rust backend
 	interface TableInfo {
@@ -77,6 +85,11 @@
 	let isPreviewingOrphans = $state(false)
 	let isCleaningOrphans = $state(false)
 	let cleanupResult = $state<OrphanCleanupResult | null>(null)
+
+	// Paste rows state
+	let isPasting = $state(false)
+	let pasteValidationErrors = $state<ValidationError[]>([])
+	let pasteValidationWarnings = $state<string[]>([])
 
 	// Load tables immediately when component initializes
 	loadTables()
@@ -573,6 +586,206 @@
 		cleanupPreview = null
 		cleanupResult = null
 	}
+
+	// ===== Paste Rows Functionality =====
+
+	/**
+	 * Get columns that are editable (exclude primary keys)
+	 * These are the columns that clipboard data maps to
+	 */
+	function getEditableColumns(): ColumnInfo[] {
+		return columns.filter((col) => !col.primary_key)
+	}
+
+	/**
+	 * Map a clipboard row (string array) to a table row object
+	 * Handles type conversion and generates IDs for primary keys
+	 */
+	function mapClipboardRowToTableRow(
+		clipboardRow: string[],
+		editableColumns: ColumnInfo[]
+	): Record<string, unknown> {
+		const row: Record<string, unknown> = {}
+		const now = getCurrentISOTimestamp()
+
+		// Process all columns (including non-editable ones)
+		for (const col of columns) {
+			const type = col.data_type.toUpperCase()
+
+			if (col.primary_key) {
+				// Generate temporary ID for primary keys (like Add Row does)
+				if (type.includes('INT')) {
+					row[col.name] = -Math.floor(Math.random() * 1000000)
+				} else {
+					row[col.name] = generateTempId()
+				}
+			} else if (isTimestampColumn(col.name) || isDateTimeType(type)) {
+				// Auto-fill timestamp columns with current time
+				row[col.name] = now
+			} else {
+				// Find this column's index in editableColumns
+				const editableIndex = editableColumns.findIndex((ec) => ec.name === col.name)
+
+				if (editableIndex !== -1 && editableIndex < clipboardRow.length) {
+					// We have clipboard data for this column
+					const rawValue = clipboardRow[editableIndex]
+					row[col.name] = convertValue(rawValue, col.data_type)
+				} else if (col.foreign_key) {
+					// Foreign key without clipboard data - use first available or null
+					const lookupValues = fkLookupCache.get(col.name)
+					if (lookupValues && lookupValues.length > 0 && !col.nullable) {
+						row[col.name] = lookupValues[0].id
+					} else {
+						row[col.name] = null
+					}
+				} else if (col.nullable) {
+					row[col.name] = null
+				} else {
+					// Default values for NOT NULL columns without data
+					if (type.includes('INT')) {
+						row[col.name] = 0
+					} else if (type.includes('REAL') || type.includes('FLOAT') || type.includes('DOUBLE')) {
+						row[col.name] = 0.0
+					} else if (type.includes('BOOL')) {
+						row[col.name] = false
+					} else {
+						row[col.name] = ''
+					}
+				}
+			}
+		}
+
+		return row
+	}
+
+	/**
+	 * Paste rows from clipboard
+	 * - No selection: Add all rows as new pending rows at top
+	 * - With selection: Overwrite from first selected row, overflow creates new rows
+	 */
+	async function pasteRowsFromClipboard(): Promise<void> {
+		if (!dataGrid || !isTableEditable || columns.length === 0) {
+			return
+		}
+
+		isPasting = true
+		updateError = null
+		pasteValidationErrors = []
+		pasteValidationWarnings = []
+
+		try {
+			// Read clipboard using Tauri plugin (bypasses browser permission issues)
+			const clipboardText = await readText()
+
+			if (!clipboardText || clipboardText.trim() === '') {
+				updateError = 'Clipboard is empty. Copy some rows from Excel, Google Sheets, or a CSV file first.'
+				return
+			}
+
+			// Parse clipboard data
+			const parsed = parseClipboardText(clipboardText)
+
+			if (!parsed || parsed.rowCount === 0) {
+				updateError = 'Could not parse clipboard data. Make sure you copied tab or comma separated values.'
+				return
+			}
+
+			console.log(`[Inspector] Parsed ${parsed.rowCount} rows from clipboard (${parsed.delimiter === '\t' ? 'tab' : 'comma'}-delimited)`)
+
+			// Get editable columns (excluding PKs)
+			const editableColumns = getEditableColumns()
+
+			if (editableColumns.length === 0) {
+				updateError = 'No editable columns in this table.'
+				return
+			}
+
+			// Validate clipboard data against schema
+			const validation = validateClipboardData(parsed.rows, editableColumns)
+
+			if (!validation.isValid) {
+				// Show validation errors and stop
+				pasteValidationErrors = validation.errors
+				updateError = `Validation failed: ${validation.stats.errorCount} of ${validation.stats.totalRows} rows have errors. Fix the data and try again.`
+				console.log(`[Inspector] Validation failed:`, validation.errors)
+				return
+			}
+
+			// Store warnings (if any) but continue with paste
+			if (validation.warnings.length > 0) {
+				pasteValidationWarnings = validation.warnings.map(
+					(w) => `Row ${w.rowIndex + 1}, "${w.columnName}": ${w.message}`
+				)
+				console.log(`[Inspector] Validation warnings:`, validation.warnings)
+			}
+
+			// Map clipboard rows to table rows (with PKs and timestamps)
+			const mappedRows = parsed.rows.map((clipboardRow) =>
+				mapClipboardRowToTableRow(clipboardRow, editableColumns)
+			)
+
+			// Get selection info
+			const firstSelectedIndex = dataGrid.getFirstSelectedRowIndex()
+			const hasSelection = firstSelectedIndex >= 0
+
+			let addedCount = 0
+			let updatedCount = 0
+
+			if (hasSelection) {
+				// Overwrite mode: start from selected row
+				const result = dataGrid.pasteRows(mappedRows, firstSelectedIndex, true)
+				addedCount = result.added
+				updatedCount = result.updated
+
+				// Track newly added rows as pending
+				if (addedCount > 0) {
+					const totalRows = dataGrid.getDisplayedRowCount()
+					// The new rows are at the end after the overwrites
+					for (let i = 0; i < addedCount; i++) {
+						const rowIndex = totalRows - addedCount + i
+						const rowData = dataGrid.getRowAtIndex(rowIndex)
+						if (rowData) {
+							const rowId = getRowId(rowData)
+							pendingNewRows = new Set([...pendingNewRows, rowId])
+						}
+					}
+				}
+
+				// Trigger cell value changed for updated rows (so they get saved to DB)
+				// Note: Updated rows that are already in DB will be handled by handleCellValueChanged
+				console.log(`[Inspector] Pasted ${updatedCount} rows (overwrite), ${addedCount} new rows`)
+			} else {
+				// Add mode: add all rows as new at top
+				const addedRows = dataGrid.addRows(mappedRows, 0)
+				addedCount = addedRows.length
+
+				// Track all as pending
+				for (const row of addedRows) {
+					const rowId = getRowId(row)
+					pendingNewRows = new Set([...pendingNewRows, rowId])
+				}
+
+				console.log(`[Inspector] Pasted ${addedCount} new rows`)
+			}
+
+			// Show success feedback
+			if (addedCount > 0 || updatedCount > 0) {
+				const msg = []
+				if (addedCount > 0) msg.push(`${addedCount} new`)
+				if (updatedCount > 0) msg.push(`${updatedCount} updated`)
+				console.log(`[Inspector] Paste complete: ${msg.join(', ')} rows`)
+			}
+		} catch (e) {
+			if (e instanceof Error && e.name === 'NotAllowedError') {
+				updateError = 'Clipboard access denied. Please allow clipboard access in your browser settings.'
+			} else {
+				updateError = e instanceof Error ? e.message : String(e)
+			}
+			console.error('[Inspector] Failed to paste rows:', e)
+		} finally {
+			isPasting = false
+		}
+	}
 </script>
 
 <div class="flex h-full">
@@ -711,11 +924,67 @@
 				<span class="font-medium">Update failed:</span>
 				{updateError}
 				<button
-					onclick={() => (updateError = null)}
+					onclick={() => {
+						updateError = null
+						pasteValidationErrors = []
+					}}
 					class="ml-2 text-xs underline hover:no-underline"
 				>
 					Dismiss
 				</button>
+			</div>
+		{/if}
+
+		{#if pasteValidationErrors.length > 0}
+			<div class="mx-4 mt-2 max-h-48 overflow-y-auto rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+				<div class="flex items-start justify-between">
+					<p class="font-medium text-amber-700 dark:text-amber-400">Validation Errors:</p>
+					<button
+						onclick={() => (pasteValidationErrors = [])}
+						class="text-xs text-amber-600 underline hover:no-underline dark:text-amber-400"
+					>
+						Dismiss
+					</button>
+				</div>
+				<ul class="mt-2 list-inside list-disc space-y-1 text-muted-foreground">
+					{#each pasteValidationErrors.slice(0, 10) as err}
+						<li>
+							<span class="font-medium">Row {err.rowIndex + 1}</span>, "{err.columnName}": {err.message}
+							{#if err.value}
+								<span class="text-xs text-muted-foreground/70">(value: "{err.value}")</span>
+							{/if}
+						</li>
+					{/each}
+					{#if pasteValidationErrors.length > 10}
+						<li class="text-muted-foreground/70">
+							... and {pasteValidationErrors.length - 10} more error(s)
+						</li>
+					{/if}
+				</ul>
+			</div>
+		{/if}
+
+		{#if pasteValidationWarnings.length > 0}
+			<div class="mx-4 mt-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-sm">
+				<div class="flex items-start justify-between">
+					<p class="font-medium text-blue-700 dark:text-blue-400">Paste Warnings:</p>
+					<button
+						onclick={() => (pasteValidationWarnings = [])}
+						class="text-xs text-blue-600 underline hover:no-underline dark:text-blue-400"
+					>
+						Dismiss
+					</button>
+				</div>
+				<ul class="mt-2 list-inside list-disc space-y-1 text-muted-foreground">
+					{#each pasteValidationWarnings.slice(0, 5) as warning}
+						<li>{warning}</li>
+					{/each}
+					{#if pasteValidationWarnings.length > 5}
+						<li class="text-muted-foreground/70">
+							... and {pasteValidationWarnings.length - 5} more warning(s)
+						</li>
+					{/if}
+				</ul>
 			</div>
 		{/if}
 
@@ -821,6 +1090,26 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 							</svg>
 							Add Row
+						</button>
+
+						<!-- Paste Rows Button -->
+						<button
+							onclick={pasteRowsFromClipboard}
+							disabled={isLoadingData || isPasting}
+							class="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-secondary disabled:opacity-50"
+							title="Paste rows from clipboard (CSV/TSV). No selection = add as new rows. With selection = overwrite from selected row."
+						>
+							{#if isPasting}
+								<svg class="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+								</svg>
+							{:else}
+								<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+								</svg>
+							{/if}
+							Paste Rows
 						</button>
 
 						<!-- Delete Selected Button -->

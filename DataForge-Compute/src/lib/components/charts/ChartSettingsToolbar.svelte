@@ -1,24 +1,16 @@
 <script lang="ts">
 	/**
-	 * ChartSettingsToolbar - Top toolbar with chart info and settings gear
+	 * ChartSettingsToolbar - Top toolbar with chart info
 	 *
 	 * Displays:
 	 * - Chart type label
 	 * - Selected chart pane title
-	 * - Settings gear button that opens the ChartSettingsDialog
 	 *
-	 * Inspired by TradingView's top settings bar.
+	 * Settings are now inline in the right sidebar (ContextToolbar → ChartSettingsPanel)
 	 */
 
 	import { selectionContext } from '$lib/panes/selection-context';
 	import { PaneType } from '$lib/panes/layout-model';
-
-	interface Props {
-		/** Callback when settings button is clicked */
-		onOpenSettings: () => void;
-	}
-
-	let { onOpenSettings }: Props = $props();
 
 	/** Selection stores */
 	let selectionType = selectionContext.selectionType;
@@ -40,6 +32,8 @@
 				return 'Cross Plot';
 			case PaneType.WellLog:
 				return 'Well Log';
+			case PaneType.D3WellLog:
+				return 'D3 Well Log';
 			case PaneType.LinkedCharts:
 				return 'Linked Charts';
 			case PaneType.Correlation:
@@ -71,22 +65,17 @@
 		{/if}
 	</div>
 
-	<button
-		class="settings-button"
-		class:disabled={!hasSelectedChart}
-		onclick={onOpenSettings}
-		disabled={!hasSelectedChart}
-		title={hasSelectedChart ? 'Open chart settings' : 'Select a chart to configure'}
-		aria-label="Open chart settings"
-	>
-		<svg viewBox="0 0 24 24" class="settings-icon" aria-hidden="true">
-			<path
-				fill="currentColor"
-				d="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97c0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.39-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1c0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z"
-			/>
-		</svg>
-		<span class="settings-label">Settings</span>
-	</button>
+	{#if hasSelectedChart}
+		<div class="settings-hint">
+			<svg viewBox="0 0 24 24" class="hint-icon" aria-hidden="true">
+				<path
+					fill="currentColor"
+					d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8z"
+				/>
+			</svg>
+			<span class="hint-text">Settings in right panel</span>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -131,46 +120,24 @@
 		text-overflow: ellipsis;
 	}
 
-	.settings-button {
+	.settings-hint {
 		display: flex;
 		align-items: center;
-		gap: 6px;
-		padding: 6px 12px;
-		border: 1px solid hsl(var(--border));
-		border-radius: 6px;
+		gap: 4px;
+		padding: 4px 8px;
+		border-radius: 4px;
 		background: hsl(var(--background));
-		color: hsl(var(--foreground));
-		font-size: 13px;
-		font-weight: 500;
-		cursor: pointer;
-		transition:
-			background-color 0.15s ease,
-			border-color 0.15s ease,
-			color 0.15s ease;
+		color: hsl(var(--muted-foreground));
 	}
 
-	.settings-button:hover:not(:disabled) {
-		background: hsl(var(--accent));
-		border-color: hsl(var(--accent));
+	.hint-icon {
+		width: 14px;
+		height: 14px;
+		opacity: 0.6;
 	}
 
-	.settings-button.disabled,
-	.settings-button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.settings-button:focus-visible {
-		outline: 2px solid hsl(var(--ring));
-		outline-offset: 2px;
-	}
-
-	.settings-icon {
-		width: 16px;
-		height: 16px;
-	}
-
-	.settings-label {
+	.hint-text {
+		font-size: 11px;
 		white-space: nowrap;
 	}
 </style>

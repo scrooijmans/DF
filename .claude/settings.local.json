@@ -5,7 +5,9 @@
       "Bash",
       "mcp__plugin_context7_context7__resolve-library-id",
       "WebSearch",
-      "WebFetch(domain:doc.opendtect.org)"
+      "WebFetch(domain:doc.opendtect.org)",
+      "Skill(context7-research-and-plan)",
+      "Skill(context7-research-and-plan:*)"
     ],
     "defaultMode": "bypassPermissions"
   }

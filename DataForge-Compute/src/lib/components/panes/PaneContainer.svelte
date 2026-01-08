@@ -32,10 +32,28 @@
 	import LinkedChartsView from '$lib/components/charts/LinkedChartsView.svelte';
 	import TablePane from '$lib/components/panes/TablePane.svelte';
 	import WellCorrelationPanel from '$lib/components/correlation/WellCorrelationPanel.svelte';
+	import D3WellLogTrack from '$lib/components/charts/D3WellLogTrack.svelte';
+	import type { D3WellLogConfig } from '$lib/panes/chart-configs';
 
 	// Import correlation types
 	import type { CorrelationConfig, CorrelationCurveData } from '$lib/charts/correlation-types';
 	import { calculateGlobalDepthRange } from '$lib/charts/correlation-types';
+
+	// Debug: Log when segmented data changes
+	$effect(() => {
+		if (pane?.paneType === PaneType.D3WellLog) {
+			console.log('[PaneContainer] D3WellLog data update:', {
+				paneId: pane?.id,
+				hasSegmentedData: !!segmentedChartData,
+				segmentCount: segmentedChartData?.segments?.length ?? 0,
+				depthRange: segmentedChartData?.depth_range,
+				mnemonic: segmentedChartData?.mnemonic,
+				hasChartConfig: !!chartConfig,
+				configType: chartConfig?.type,
+				curveColor: (chartConfig as D3WellLogConfig | undefined)?.curveColor
+			})
+		}
+	})
 
 	interface Props {
 		/** Pane node data */
@@ -381,6 +399,44 @@
 					<div class="pane-empty-content">
 						<div class="pane-empty-icon">📊</div>
 						<p class="pane-empty-text">Configure wells and curves in the settings panel</p>
+					</div>
+				</div>
+			{/if}
+		{:else if pane.paneType === PaneType.D3WellLog}
+			<!-- Render D3 well log track - requires real data -->
+			{#if segmentedChartData && segmentedChartData.segments?.length > 0}
+				<D3WellLogTrack
+					segments={segmentedChartData.segments.map(s => ({
+						depths: s.depths,
+						values: s.values
+					}))}
+					depthRange={{
+						min: segmentedChartData.depth_range?.[0] ?? 0,
+						max: segmentedChartData.depth_range?.[1] ?? 1000
+					}}
+					config={{
+						title: chartConfig?.title || segmentedChartData.mnemonic || 'Curve',
+						unit: segmentedChartData.unit ?? '',
+						xMin: (chartConfig as D3WellLogConfig | undefined)?.xMin ?? 0,
+						xMax: (chartConfig as D3WellLogConfig | undefined)?.xMax ?? 150,
+						curveColor: (chartConfig as D3WellLogConfig | undefined)?.curveColor ?? '#22c55e',
+						fillColor: (chartConfig as D3WellLogConfig | undefined)?.fillColor ?? '#ffff99',
+						fillDirection: (chartConfig as D3WellLogConfig | undefined)?.fillDirection ?? 'left',
+						lineWidth: (chartConfig as D3WellLogConfig | undefined)?.lineWidth ?? 1.5
+					}}
+					width={width}
+					height={height - 36}
+					showLithologyLabels={(chartConfig as D3WellLogConfig | undefined)?.showLithologyLabels ?? true}
+					grCutoff={(chartConfig as D3WellLogConfig | undefined)?.grCutoff ?? 75}
+				/>
+			{:else}
+				<!-- Empty state - no data loaded -->
+				<div class="pane-empty">
+					<div class="pane-empty-content">
+						<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+							<path d="M3 3v18h18M7 16l4-4 4 4 4-8" />
+						</svg>
+						<p class="pane-empty-text">Select a well and curve<br />in the settings panel</p>
 					</div>
 				</div>
 			{/if}

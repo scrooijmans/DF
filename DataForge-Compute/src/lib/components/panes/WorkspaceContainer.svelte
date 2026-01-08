@@ -89,6 +89,7 @@
 		{ type: PaneType.ScatterChart, label: 'Scatter Chart' },
 		{ type: PaneType.Histogram, label: 'Histogram' },
 		{ type: PaneType.WellLog, label: 'Well Log' },
+		{ type: PaneType.D3WellLog, label: 'D3 Well Log' },
 		{ type: PaneType.LinkedCharts, label: 'Linked Charts' },
 		{ type: PaneType.DataGrid, label: 'Data Grid' },
 	];
@@ -698,8 +699,8 @@
 		</div>
 	</div>
 
-	<!-- Chart Settings Toolbar - Shows chart info and settings gear -->
-	<ChartSettingsToolbar onOpenSettings={handleOpenSettings} />
+	<!-- Chart Settings Toolbar - Shows chart info -->
+	<ChartSettingsToolbar />
 
 	<!-- Workspace body: vertical toolbar on left + content -->
 	<div class="workspace-body">

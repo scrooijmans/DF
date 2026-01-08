@@ -25,6 +25,6 @@ pub mod parser;
 pub use detection::{detect_marker_column_type, detect_marker_column_with_unit, DetectedMarkerColumn};
 pub use ingest::{
     ingest_marker_file, MarkerColumnMapping, MarkerIngestOptions, MarkerIngestResult,
-    WellMarkerGroup, WellMatchMode,
+    WellMarkerGroup, WellMapping, WellMatchMode,
 };
 pub use parser::{parse_marker_csv, ParsedMarkerColumn, ParsedMarkerFile, ParsedMarkerRow};

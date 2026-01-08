@@ -20,6 +20,17 @@ use std::path::Path;
 use tracing::info;
 use uuid::Uuid;
 
+/// Pre-mapped well entry from the UI
+#[derive(Debug, Clone)]
+pub struct WellMapping {
+    /// Well name from the CSV file
+    pub well_name: String,
+    /// Pre-mapped well ID from the UI (if user selected an existing well)
+    pub well_id: Option<Uuid>,
+    /// Whether to create a new well for this entry
+    pub create_new: bool,
+}
+
 /// Options for marker CSV ingestion
 #[derive(Debug, Clone)]
 pub struct MarkerIngestOptions {
@@ -45,6 +56,8 @@ pub struct MarkerIngestOptions {
     pub default_well_id: Option<Uuid>,
     /// Whether to allow markers without mapped wells (stores well_name as text, well_id as NULL)
     pub allow_unmapped_wells: bool,
+    /// Pre-mapped wells from the UI (well_name -> well_id mapping)
+    pub well_mappings: HashMap<String, WellMapping>,
 }
 
 /// Well matching mode
@@ -70,6 +83,7 @@ impl Default for MarkerIngestOptions {
             auto_create_wells: false,
             default_well_id: None,
             allow_unmapped_wells: false,
+            well_mappings: HashMap::new(),
         }
     }
 }
@@ -264,7 +278,51 @@ fn match_or_create_well(
     created_by: Uuid,
     options: &MarkerIngestOptions,
 ) -> Result<(Option<Uuid>, bool)> {
-    // Try to match existing well
+    // 1. First check if there's a pre-mapped well ID from the UI
+    //    Try exact match first, then case-insensitive
+    if let Some(mapping) = options.well_mappings.get(well_name)
+        .or_else(|| {
+            // Case-insensitive lookup
+            let lower_name = well_name.to_lowercase();
+            options.well_mappings.iter()
+                .find(|(k, _)| k.to_lowercase() == lower_name)
+                .map(|(_, v)| v)
+        })
+    {
+        // If user explicitly mapped to a well_id, use it
+        if let Some(well_id) = mapping.well_id {
+            info!(well_id = %well_id, well_name = well_name, "Using pre-mapped well ID from UI");
+            return Ok((Some(well_id), false));
+        }
+
+        // If user marked create_new, create the well
+        if mapping.create_new {
+            let new_well_id = Uuid::new_v4();
+            conn.execute(
+                r#"
+                INSERT INTO wells (
+                    id, workspace_id, name,
+                    depth_unit, depth_step, depth_origin,
+                    created_by
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                "#,
+                params![
+                    new_well_id.to_string(),
+                    workspace_id.to_string(),
+                    well_name,
+                    &options.depth_unit,
+                    0.5,
+                    0.0,
+                    created_by.to_string(),
+                ],
+            )?;
+            info!(well_id = %new_well_id, name = well_name, "Created new well from UI mapping");
+            return Ok((Some(new_well_id), true));
+        }
+    }
+
+    // 2. Try to match existing well by name
     let query = match options.well_match_mode {
         WellMatchMode::Exact => {
             "SELECT id FROM wells WHERE workspace_id = ? AND name = ? AND deleted_at IS NULL"
@@ -285,7 +343,7 @@ fn match_or_create_well(
         return Ok((Some(well_id), false));
     }
 
-    // Try matching by UWI
+    // 3. Try matching by UWI
     if let Ok(well_id_str) = conn.query_row(
         "SELECT id FROM wells WHERE workspace_id = ? AND uwi = ? AND deleted_at IS NULL",
         params![workspace_id.to_string(), well_name],
@@ -296,7 +354,7 @@ fn match_or_create_well(
         return Ok((Some(well_id), false));
     }
 
-    // If no match and auto-create is enabled, create new well
+    // 4. If no match and auto-create is enabled, create new well
     if options.auto_create_wells {
         let new_well_id = Uuid::new_v4();
 
@@ -324,12 +382,12 @@ fn match_or_create_well(
         return Ok((Some(new_well_id), true));
     }
 
-    // Use default well if provided
+    // 5. Use default well if provided
     if let Some(default_id) = options.default_well_id {
         return Ok((Some(default_id), false));
     }
 
-    // If unmapped wells are allowed, return None for well_id (will store well_name as text)
+    // 6. If unmapped wells are allowed, return None for well_id (will store well_name as text)
     if options.allow_unmapped_wells {
         info!(well_name = well_name, "Allowing unmapped well - will store well_name as text");
         return Ok((None, false));
@@ -624,5 +682,133 @@ mod tests {
             .collect::<std::result::Result<Vec<_>, _>>()
             .unwrap();
         assert_eq!(well_names, vec!["F02-1", "F06-1"]);
+    }
+
+    #[test]
+    fn test_ingest_with_pre_mapped_wells() {
+        let (conn, blob_store) = setup_test_db();
+        let (workspace_id, member_id, _) = create_test_workspace_and_member(&conn);
+
+        // Create two test wells
+        let well1_id = create_test_well(&conn, workspace_id, member_id, "Well Alpha");
+        let well2_id = create_test_well(&conn, workspace_id, member_id, "Well Beta");
+
+        // Create a marker file with different well names than the database
+        let temp_dir = tempdir().unwrap();
+        let csv_path = temp_dir.path().join("markers.csv");
+        std::fs::write(
+            &csv_path,
+            "Well Name,Depth,Marker\nF02-1,100,TopA\nF02-1,200,TopB\nF06-1,150,TopC\n",
+        )
+        .unwrap();
+
+        // Pre-map the CSV well names to existing well IDs
+        let mut well_mappings = HashMap::new();
+        well_mappings.insert(
+            "F02-1".to_string(),
+            WellMapping {
+                well_name: "F02-1".to_string(),
+                well_id: Some(well1_id),
+                create_new: false,
+            },
+        );
+        well_mappings.insert(
+            "F06-1".to_string(),
+            WellMapping {
+                well_name: "F06-1".to_string(),
+                well_id: Some(well2_id),
+                create_new: false,
+            },
+        );
+
+        let options = MarkerIngestOptions {
+            well_mappings,
+            ..Default::default()
+        };
+
+        let result = ingest_marker_file(
+            &conn,
+            &blob_store,
+            &csv_path,
+            workspace_id,
+            member_id,
+            None,
+            &options,
+        )
+        .unwrap();
+
+        assert_eq!(result.marker_count, 3);
+        assert_eq!(result.well_count, 2);
+        assert_eq!(result.wells_created, 0);
+
+        // Verify markers were assigned to the correct pre-mapped wells
+        let f02_markers: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM markers WHERE well_id = ?",
+                params![well1_id.to_string()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(f02_markers, 2); // F02-1 had 2 markers
+
+        let f06_markers: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM markers WHERE well_id = ?",
+                params![well2_id.to_string()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(f06_markers, 1); // F06-1 had 1 marker
+    }
+
+    #[test]
+    fn test_ingest_with_pre_mapped_create_new() {
+        let (conn, blob_store) = setup_test_db();
+        let (workspace_id, member_id, _) = create_test_workspace_and_member(&conn);
+
+        // Create a marker file
+        let temp_dir = tempdir().unwrap();
+        let csv_path = temp_dir.path().join("markers.csv");
+        std::fs::write(&csv_path, "Well Name,Depth,Marker\nNewWell,100,TopA\n").unwrap();
+
+        // Pre-map with create_new = true
+        let mut well_mappings = HashMap::new();
+        well_mappings.insert(
+            "NewWell".to_string(),
+            WellMapping {
+                well_name: "NewWell".to_string(),
+                well_id: None,
+                create_new: true,
+            },
+        );
+
+        let options = MarkerIngestOptions {
+            well_mappings,
+            ..Default::default()
+        };
+
+        let result = ingest_marker_file(
+            &conn,
+            &blob_store,
+            &csv_path,
+            workspace_id,
+            member_id,
+            None,
+            &options,
+        )
+        .unwrap();
+
+        assert_eq!(result.marker_count, 1);
+        assert_eq!(result.wells_created, 1);
+
+        // Verify well was created with correct name
+        let well_name: String = conn
+            .query_row(
+                "SELECT name FROM wells WHERE workspace_id = ?",
+                params![workspace_id.to_string()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(well_name, "NewWell");
     }
 }

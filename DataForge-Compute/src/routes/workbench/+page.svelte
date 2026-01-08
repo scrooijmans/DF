@@ -17,6 +17,9 @@
 	import { WorkspaceContainer, ContextToolbar } from '$lib/components/panes';
 	import { workspaceManager } from '$lib/panes/workspace-manager';
 	import { PaneType } from '$lib/panes/layout-model';
+	import { selectionContext } from '$lib/panes/selection-context';
+	import type { ChartConfiguration } from '$lib/panes/chart-configs';
+	import type { SegmentedCurveData } from '$lib/types';
 	import {
 		status,
 		wells,
@@ -38,11 +41,39 @@
 	// Get selected well info for ContextToolbar
 	let selectedWell = $derived($wells.find((w) => w.id === $selectedWellId) ?? null);
 
+	// Get selected pane from selection context for callbacks
+	let selectedPane = selectionContext.selectedPane;
+
+	/**
+	 * Handle chart config changes from inline settings panel
+	 */
+	function handleConfigChange(config: ChartConfiguration): void {
+		const pane = $selectedPane;
+		if (pane) {
+			selectionContext.updatePaneConfig(config);
+			workspaceManager.updatePaneConfig(pane.paneId, {
+				chartConfig: config as any
+			});
+		}
+	}
+
+	/**
+	 * Handle segmented data changes from inline settings panel
+	 */
+	function handleSegmentedDataChange(data: SegmentedCurveData | null): void {
+		const pane = $selectedPane;
+		if (pane) {
+			workspaceManager.updatePaneConfig(pane.paneId, {
+				segmentedChartData: data as any
+			});
+		}
+	}
+
 	/**
 	 * Handle adding a chart from the toolbar
 	 * Creates a new pane of the specified chart type
 	 */
-	function handleAddChart(type: 'line' | 'scatter' | 'histogram' | 'crossplot' | 'welllog' | 'correlation') {
+	function handleAddChart(type: 'line' | 'scatter' | 'histogram' | 'crossplot' | 'welllog' | 'd3-welllog' | 'correlation') {
 		// Map toolbar types to pane types
 		const paneTypeMap: Record<string, PaneType> = {
 			line: PaneType.LineChart,
@@ -50,6 +81,7 @@
 			histogram: PaneType.Histogram,
 			crossplot: PaneType.CrossPlot,
 			welllog: PaneType.WellLog,
+			'd3-welllog': PaneType.D3WellLog,
 			correlation: PaneType.Correlation
 		};
 
@@ -62,6 +94,7 @@
 			histogram: 'Histogram',
 			crossplot: 'Crossplot',
 			welllog: 'Well Log',
+			'd3-welllog': 'D3 Well Log',
 			correlation: 'Well Correlation'
 		};
 		const title = titleMap[type] ?? `${type.charAt(0).toUpperCase() + type.slice(1)} Chart`;
@@ -179,6 +212,8 @@
 						curves={$curves}
 						well={selectedWell}
 						onWellChange={(wellId) => selectWell(wellId)}
+						onConfigChange={handleConfigChange}
+						onSegmentedDataChange={handleSegmentedDataChange}
 					/>
 				</div>
 

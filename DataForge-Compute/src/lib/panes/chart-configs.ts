@@ -273,6 +273,40 @@ export interface PolygonRegion {
 	opacity: number;
 }
 
+/**
+ * D3 Well Log Configuration
+ *
+ * SVG-based well log track using D3.js for rendering.
+ * Supports area fills, lithology labels, and fine-grained styling.
+ */
+export interface D3WellLogConfig extends CommonChartOptions {
+	type: 'd3-welllog';
+	/** Curve to plot */
+	curve: AxisBinding;
+	/** X-axis min value */
+	xMin: number;
+	/** X-axis max value */
+	xMax: number;
+	/** Curve line color */
+	curveColor: string;
+	/** Fill color (null for no fill) */
+	fillColor: string | null;
+	/** Fill direction: 'left' fills from left edge to curve */
+	fillDirection: 'left' | 'right' | 'none';
+	/** Line width in pixels */
+	lineWidth: number;
+	/** Show lithology labels (Sand/Shale) */
+	showLithologyLabels: boolean;
+	/** GR cutoff for sand/shale classification */
+	grCutoff: number;
+	/** Depth range */
+	depthRange: {
+		min: number | null;
+		max: number | null;
+		autoScale: boolean;
+	};
+}
+
 // ============================================================================
 // Union Type for All Chart Configs
 // ============================================================================
@@ -283,6 +317,7 @@ export type ChartConfiguration =
 	| HistogramConfig
 	| CrossPlotConfig
 	| WellLogConfig
+	| D3WellLogConfig
 	| CorrelationConfig;
 
 // ============================================================================
@@ -380,6 +415,27 @@ export function createDefaultWellLogConfig(): WellLogConfig {
 	};
 }
 
+export function createDefaultD3WellLogConfig(): D3WellLogConfig {
+	return {
+		...DEFAULT_COMMON_OPTIONS,
+		type: 'd3-welllog',
+		curve: { ...DEFAULT_AXIS_BINDING },
+		xMin: 0,
+		xMax: 150,
+		curveColor: '#22c55e',
+		fillColor: '#ffff99',
+		fillDirection: 'left',
+		lineWidth: 1.5,
+		showLithologyLabels: true,
+		grCutoff: 75,
+		depthRange: {
+			min: null,
+			max: null,
+			autoScale: true,
+		},
+	};
+}
+
 // ============================================================================
 // Curve Type Restrictions
 // ============================================================================
@@ -433,6 +489,7 @@ export function getChartTypeName(chartType: string): string {
 		'histogram': 'Histogram',
 		'crossplot': 'Cross Plot',
 		'welllog': 'Well Log',
+		'd3-welllog': 'D3 Well Log',
 		'linked-charts': 'Linked Charts',
 		'correlation': 'Well Correlation',
 	};

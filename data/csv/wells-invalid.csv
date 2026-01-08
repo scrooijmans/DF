@@ -1,0 +1,5 @@
+name,uwi,depth_step,version
+Valid Well,33-333-33333,0.5,1
+Invalid Depth,44-444-44444,not-a-number,2
+Empty Name,,55-555-55555,3
+Invalid Version,66-666-66666,1.0,text

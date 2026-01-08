@@ -13,4 +13,5 @@ export { default as TabContainer } from './TabContainer.svelte';
 export { default as PaneContainer } from './PaneContainer.svelte';
 export { default as ContextToolbar } from './ContextToolbar.svelte';
 export { default as ChartConfigPanel } from './ChartConfigPanel.svelte';
+export { default as ChartSettingsPanel } from './ChartSettingsPanel.svelte';
 export { default as CurveSelector } from './CurveSelector.svelte';

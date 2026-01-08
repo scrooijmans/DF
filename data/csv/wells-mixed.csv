@@ -1,0 +1,6 @@
+name,uwi,field,depth_step
+Good Row 1,AA-111-11111,Basin A,0.5
+Bad Depth,BB-222-22222,Basin B,invalid
+Good Row 2,CC-333-33333,Basin C,1.0
+Missing Name,,DD-444-44444,0.25
+Good Row 3,EE-555-55555,Basin E,0.5
