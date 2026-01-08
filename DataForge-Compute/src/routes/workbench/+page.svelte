@@ -20,6 +20,7 @@
 	import { selectionContext } from '$lib/panes/selection-context';
 	import type { ChartConfiguration } from '$lib/panes/chart-configs';
 	import type { SegmentedCurveData } from '$lib/types';
+	import type { MultiCurveSegmentedData } from '$lib/panes/layout-model';
 	import {
 		status,
 		wells,
@@ -58,13 +59,25 @@
 	}
 
 	/**
-	 * Handle segmented data changes from inline settings panel
+	 * Handle segmented data changes from inline settings panel (single curve)
 	 */
 	function handleSegmentedDataChange(data: SegmentedCurveData | null): void {
 		const pane = $selectedPane;
 		if (pane) {
 			workspaceManager.updatePaneConfig(pane.paneId, {
 				segmentedChartData: data as any
+			});
+		}
+	}
+
+	/**
+	 * Handle multi-curve data changes from inline settings panel (D3 well log)
+	 */
+	function handleMultiCurveDataChange(data: MultiCurveSegmentedData | null): void {
+		const pane = $selectedPane;
+		if (pane) {
+			workspaceManager.updatePaneConfig(pane.paneId, {
+				multiCurveData: data ?? undefined
 			});
 		}
 	}
@@ -214,6 +227,7 @@
 						onWellChange={(wellId) => selectWell(wellId)}
 						onConfigChange={handleConfigChange}
 						onSegmentedDataChange={handleSegmentedDataChange}
+						onMultiCurveDataChange={handleMultiCurveDataChange}
 					/>
 				</div>
 

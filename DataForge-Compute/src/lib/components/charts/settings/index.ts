@@ -32,4 +32,4 @@ export { SingleWellDataTab, MultiWellDataTab, CorrelationDataTab } from './data-
 export { D3WellLogStyleSection } from './style'
 
 // Axes Components
-export { DepthSettingsSection, XAxisRangeSection } from './axes'
+export { DepthSettingsSection, XAxisRangeSection, D3CurveSettingsSection } from './axes'

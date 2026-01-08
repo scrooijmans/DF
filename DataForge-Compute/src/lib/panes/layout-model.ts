@@ -112,10 +112,26 @@ export interface PaneConfig {
 	segmentedChartData?: SegmentedCurveData;
 	/** Multi-well data for crossplot/scatter/line charts with multiple wells */
 	multiWellData?: MultiWellCurveData[];
+	/** Multi-curve data for D3 well log charts */
+	multiCurveData?: MultiCurveSegmentedData;
 	/** Linked group for cursor/viewport sync */
 	linkedGroup?: string;
 	/** Additional pane-specific options */
 	options?: Record<string, unknown>;
+}
+
+/**
+ * Multi-curve segmented data structure for D3 well log
+ */
+export interface MultiCurveSegmentedData {
+	curves: Array<{
+		curveId: string;
+		mnemonic: string;
+		unit: string;
+		segments: Array<{ depths: number[]; values: number[] }>;
+		depth_range: [number, number];
+	}>;
+	combined_depth_range: [number, number];
 }
 
 // ============================================================================

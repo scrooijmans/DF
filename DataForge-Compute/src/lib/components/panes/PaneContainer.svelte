@@ -39,18 +39,23 @@
 	import type { CorrelationConfig, CorrelationCurveData } from '$lib/charts/correlation-types';
 	import { calculateGlobalDepthRange } from '$lib/charts/correlation-types';
 
-	// Debug: Log when segmented data changes
+	// Debug: Log when multi-curve or segmented data changes
 	$effect(() => {
 		if (pane?.paneType === PaneType.D3WellLog) {
+			const d3Cfg = chartConfig as D3WellLogConfig | undefined
 			console.log('[PaneContainer] D3WellLog data update:', {
 				paneId: pane?.id,
-				hasSegmentedData: !!segmentedChartData,
-				segmentCount: segmentedChartData?.segments?.length ?? 0,
-				depthRange: segmentedChartData?.depth_range,
-				mnemonic: segmentedChartData?.mnemonic,
+				// New multi-curve format
+				hasMultiCurveData: !!multiCurveData,
+				multiCurveCount: multiCurveData?.curves?.length ?? 0,
+				multiCurveIds: multiCurveData?.curves?.map(c => c.curveId),
+				combinedDepthRange: multiCurveData?.combined_depth_range,
+				// Config
 				hasChartConfig: !!chartConfig,
-				configType: chartConfig?.type,
-				curveColor: (chartConfig as D3WellLogConfig | undefined)?.curveColor
+				configCurvesCount: d3Cfg?.curves?.length ?? 0,
+				// Legacy single curve
+				hasLegacySegmentedData: !!segmentedChartData,
+				legacySegmentCount: segmentedChartData?.segments?.length ?? 0
 			})
 		}
 	})
@@ -106,6 +111,18 @@
 
 	/** Extract segmented chart data reactively from pane (new segment-based architecture) */
 	let segmentedChartData = $derived(pane?.config?.segmentedChartData as import('$lib/types').SegmentedCurveData | undefined);
+
+	/** Extract multi-curve segmented data for D3 well log (new multi-curve architecture) */
+	let multiCurveData = $derived(pane?.config?.multiCurveData as {
+		curves: Array<{
+			curveId: string
+			mnemonic: string
+			unit: string
+			segments: Array<{ depths: number[]; values: number[] }>
+			depth_range: [number, number]
+		}>
+		combined_depth_range: [number, number]
+	} | undefined);
 
 	/** Extract multi-well data for crossplot/scatter/line charts */
 	let multiWellData = $derived(pane?.config?.multiWellData as import('$lib/types').MultiWellCurveData[] | undefined);
@@ -403,31 +420,69 @@
 				</div>
 			{/if}
 		{:else if pane.paneType === PaneType.D3WellLog}
-			<!-- Render D3 well log track - requires real data -->
-			{#if segmentedChartData && segmentedChartData.segments?.length > 0}
+			<!-- Render D3 well log track - NEW multi-curve format -->
+			{@const d3Config = chartConfig as D3WellLogConfig | undefined}
+			{@const hasMultiCurveData = multiCurveData && multiCurveData.curves?.length > 0}
+			{@const hasLegacySingleCurve = segmentedChartData && segmentedChartData.segments?.length > 0}
+
+			{#if hasMultiCurveData}
+				<!-- Multi-curve mode (new) -->
 				<D3WellLogTrack
-					segments={segmentedChartData.segments.map(s => ({
-						depths: s.depths,
-						values: s.values
-					}))}
+					curvesData={multiCurveData.curves.map(curveData => {
+						// Find matching config from d3Config.curves array
+						const curveConfig = d3Config?.curves?.find(c => c.curveId === curveData.curveId)
+						return {
+							config: curveConfig ?? {
+								curveId: curveData.curveId,
+								mnemonic: curveData.mnemonic,
+								unit: curveData.unit,
+								xMin: 0,
+								xMax: 100,
+								color: '#22c55e',
+								lineWidth: 1.5,
+								fillDirection: 'none' as const,
+								fillColor: null,
+								fillOpacity: 0.5
+							},
+							segments: curveData.segments
+						}
+					})}
+					depthRange={{
+						min: d3Config?.depthRange?.autoScale !== false
+							? multiCurveData.combined_depth_range[0]
+							: (d3Config?.depthRange?.min ?? multiCurveData.combined_depth_range[0]),
+						max: d3Config?.depthRange?.autoScale !== false
+							? multiCurveData.combined_depth_range[1]
+							: (d3Config?.depthRange?.max ?? multiCurveData.combined_depth_range[1])
+					}}
+					width={width}
+					height={height - 36}
+					crossoverFill={d3Config?.crossoverFill}
+				/>
+			{:else if hasLegacySingleCurve}
+				<!-- Legacy single-curve mode (backwards compatibility) -->
+				<D3WellLogTrack
+					curvesData={[{
+						config: {
+							curveId: d3Config?.curve?.curveId ?? 'legacy',
+							mnemonic: segmentedChartData.mnemonic ?? 'Curve',
+							unit: segmentedChartData.unit ?? '',
+							xMin: d3Config?.xMin ?? 0,
+							xMax: d3Config?.xMax ?? 150,
+							color: d3Config?.curveColor ?? '#22c55e',
+							lineWidth: d3Config?.lineWidth ?? 1.5,
+							fillDirection: d3Config?.fillDirection ?? 'left',
+							fillColor: d3Config?.fillColor ?? '#ffff99',
+							fillOpacity: 0.5
+						},
+						segments: segmentedChartData.segments
+					}]}
 					depthRange={{
 						min: segmentedChartData.depth_range?.[0] ?? 0,
 						max: segmentedChartData.depth_range?.[1] ?? 1000
 					}}
-					config={{
-						title: chartConfig?.title || segmentedChartData.mnemonic || 'Curve',
-						unit: segmentedChartData.unit ?? '',
-						xMin: (chartConfig as D3WellLogConfig | undefined)?.xMin ?? 0,
-						xMax: (chartConfig as D3WellLogConfig | undefined)?.xMax ?? 150,
-						curveColor: (chartConfig as D3WellLogConfig | undefined)?.curveColor ?? '#22c55e',
-						fillColor: (chartConfig as D3WellLogConfig | undefined)?.fillColor ?? '#ffff99',
-						fillDirection: (chartConfig as D3WellLogConfig | undefined)?.fillDirection ?? 'left',
-						lineWidth: (chartConfig as D3WellLogConfig | undefined)?.lineWidth ?? 1.5
-					}}
 					width={width}
 					height={height - 36}
-					showLithologyLabels={(chartConfig as D3WellLogConfig | undefined)?.showLithologyLabels ?? true}
-					grCutoff={(chartConfig as D3WellLogConfig | undefined)?.grCutoff ?? 75}
 				/>
 			{:else}
 				<!-- Empty state - no data loaded -->
@@ -436,7 +491,7 @@
 						<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
 							<path d="M3 3v18h18M7 16l4-4 4 4 4-8" />
 						</svg>
-						<p class="pane-empty-text">Select a well and curve<br />in the settings panel</p>
+						<p class="pane-empty-text">Select a well and curve(s)<br />in the settings panel</p>
 					</div>
 				</div>
 			{/if}

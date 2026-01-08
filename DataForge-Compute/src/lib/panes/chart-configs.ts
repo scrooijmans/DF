@@ -274,37 +274,82 @@ export interface PolygonRegion {
 }
 
 /**
+ * Individual curve configuration for D3 well log track
+ */
+export interface D3CurveBinding {
+	/** Curve ID */
+	curveId: string;
+	/** Curve mnemonic (display name) */
+	mnemonic: string;
+	/** Unit of measurement */
+	unit?: string;
+	/** X-axis min value for this curve */
+	xMin: number;
+	/** X-axis max value for this curve */
+	xMax: number;
+	/** Curve line color */
+	color: string;
+	/** Line width in pixels */
+	lineWidth: number;
+	/** Fill direction: 'left' fills from left edge to curve, 'right' from right edge */
+	fillDirection: 'left' | 'right' | 'none';
+	/** Fill color (null for no fill) */
+	fillColor: string | null;
+	/** Fill opacity (0-1) */
+	fillOpacity: number;
+}
+
+/**
+ * Crossover fill configuration between two curves
+ */
+export interface CrossoverFillConfig {
+	/** ID of the first curve (typically neutron porosity) */
+	curve1Id: string;
+	/** ID of the second curve (typically bulk density) */
+	curve2Id: string;
+	/** Fill color when curve1 > curve2 (e.g., gas effect - red/orange) */
+	positiveColor: string;
+	/** Fill color when curve2 > curve1 (e.g., oil/brine - green/blue) */
+	negativeColor: string;
+	/** Fill opacity */
+	opacity: number;
+	/** Whether crossover fill is enabled */
+	enabled: boolean;
+}
+
+/**
  * D3 Well Log Configuration
  *
  * SVG-based well log track using D3.js for rendering.
- * Supports area fills, lithology labels, and fine-grained styling.
+ * Supports multiple curves with independent X-axes and crossover fills.
  */
 export interface D3WellLogConfig extends CommonChartOptions {
 	type: 'd3-welllog';
-	/** Curve to plot */
-	curve: AxisBinding;
-	/** X-axis min value */
-	xMin: number;
-	/** X-axis max value */
-	xMax: number;
-	/** Curve line color */
-	curveColor: string;
-	/** Fill color (null for no fill) */
-	fillColor: string | null;
-	/** Fill direction: 'left' fills from left edge to curve */
-	fillDirection: 'left' | 'right' | 'none';
-	/** Line width in pixels */
-	lineWidth: number;
-	/** Show lithology labels (Sand/Shale) */
-	showLithologyLabels: boolean;
-	/** GR cutoff for sand/shale classification */
-	grCutoff: number;
+	/** Array of curves to plot (supports 1-4 curves typically) */
+	curves: D3CurveBinding[];
+	/** Crossover fill configuration (optional, for density-neutron overlay) */
+	crossoverFill?: CrossoverFillConfig;
 	/** Depth range */
 	depthRange: {
 		min: number | null;
 		max: number | null;
 		autoScale: boolean;
 	};
+	// Legacy single-curve properties (for backwards compatibility)
+	/** @deprecated Use curves[] instead */
+	curve?: AxisBinding;
+	/** @deprecated Use curves[0].xMin instead */
+	xMin?: number;
+	/** @deprecated Use curves[0].xMax instead */
+	xMax?: number;
+	/** @deprecated Use curves[0].color instead */
+	curveColor?: string;
+	/** @deprecated Use curves[0].fillColor instead */
+	fillColor?: string | null;
+	/** @deprecated Use curves[0].fillDirection instead */
+	fillDirection?: 'left' | 'right' | 'none';
+	/** @deprecated Use curves[0].lineWidth instead */
+	lineWidth?: number;
 }
 
 // ============================================================================
@@ -419,6 +464,13 @@ export function createDefaultD3WellLogConfig(): D3WellLogConfig {
 	return {
 		...DEFAULT_COMMON_OPTIONS,
 		type: 'd3-welllog',
+		curves: [], // Empty array - curves added via UI
+		depthRange: {
+			min: null,
+			max: null,
+			autoScale: true,
+		},
+		// Legacy properties for backwards compatibility
 		curve: { ...DEFAULT_AXIS_BINDING },
 		xMin: 0,
 		xMax: 150,
@@ -426,14 +478,66 @@ export function createDefaultD3WellLogConfig(): D3WellLogConfig {
 		fillColor: '#ffff99',
 		fillDirection: 'left',
 		lineWidth: 1.5,
-		showLithologyLabels: true,
-		grCutoff: 75,
-		depthRange: {
-			min: null,
-			max: null,
-			autoScale: true,
-		},
 	};
+}
+
+/**
+ * Create a default D3 curve binding with sensible defaults for a mnemonic
+ */
+export function createDefaultD3CurveBinding(
+	curveId: string,
+	mnemonic: string,
+	unit?: string
+): D3CurveBinding {
+	// Set defaults based on curve type
+	const defaults = getD3CurveDefaults(mnemonic);
+	return {
+		curveId,
+		mnemonic,
+		unit,
+		xMin: defaults.xMin,
+		xMax: defaults.xMax,
+		color: defaults.color,
+		lineWidth: 1.5,
+		fillDirection: 'none',
+		fillColor: null,
+		fillOpacity: 0.5,
+	};
+}
+
+/**
+ * Get default scale ranges and colors for common curve mnemonics
+ */
+function getD3CurveDefaults(mnemonic: string): { xMin: number; xMax: number; color: string } {
+	const upper = mnemonic.toUpperCase();
+
+	// Neutron Porosity curves (typically 45% to -15%, reversed scale)
+	if (['NPHI', 'TNPH', 'NPOR', 'NEUTRON'].some(m => upper.includes(m))) {
+		return { xMin: 45, xMax: -15, color: '#1e3a5f' }; // Dark blue/black
+	}
+
+	// Bulk Density curves (typically 1.90 to 2.90 g/cm³)
+	if (['RHOB', 'RHOZ', 'DENSITY'].some(m => upper.includes(m))) {
+		return { xMin: 1.90, xMax: 2.90, color: '#c2410c' }; // Orange/brown
+	}
+
+	// Gamma Ray (0 to 150 gAPI)
+	if (['GR', 'SGR', 'CGR', 'GAMMA'].some(m => upper.includes(m))) {
+		return { xMin: 0, xMax: 150, color: '#22c55e' }; // Green
+	}
+
+	// Resistivity (log scale typically 0.2 to 2000)
+	if (['RT', 'RILD', 'RILM', 'RSFL', 'RXO', 'ILD', 'ILM'].some(m => upper.includes(m))) {
+		return { xMin: 0.2, xMax: 200, color: '#8b5cf6' }; // Purple
+	}
+
+	// Sonic (40 to 140 us/ft)
+	if (['DT', 'DTC', 'DTS', 'DTCO', 'SONIC'].some(m => upper.includes(m))) {
+		return { xMin: 40, xMax: 140, color: '#f59e0b' }; // Amber
+	}
+
+	// Default
+	return { xMin: 0, xMax: 100, color: '#3b82f6' }; // Blue
 }
 
 // ============================================================================

@@ -989,6 +989,7 @@
 	}
 
 	async function loadTrackCurveData(wellId: string, track: CorrelationTrack): Promise<void> {
+		if (!track.curveId) return;
 		try {
 			const segmentedData = await loadSegmentedCurveData(track.curveId);
 			if (segmentedData) {

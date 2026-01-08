@@ -4,14 +4,17 @@
 	 *
 	 * Used by: histogram, welllog, d3-welllog
 	 * Features: Scrollable well list, scrollable curve list
+	 * D3-welllog supports multi-curve selection
 	 */
 	import type { CurveInfo, WellInfo } from '$lib/types'
 	import type {
 		HistogramConfig,
 		WellLogConfig,
 		D3WellLogConfig,
-		AxisBinding
+		AxisBinding,
+		D3CurveBinding
 	} from '$lib/panes/chart-configs'
+	import { createDefaultD3CurveBinding } from '$lib/panes/chart-configs'
 	import SelectList from '../SelectList.svelte'
 
 	type SingleWellChartConfig = HistogramConfig | WellLogConfig | D3WellLogConfig
@@ -27,8 +30,10 @@
 		selectedWell: WellInfo | null
 		/** Callback when well changes */
 		onWellChange: (wellId: string) => void
-		/** Callback when axis binding changes */
+		/** Callback when axis binding changes (for histogram/welllog) */
 		onAxisChange: (key: string, binding: AxisBinding | null) => void
+		/** Callback when D3 curves change (for d3-welllog multi-curve) */
+		onCurvesChange?: (curves: D3CurveBinding[]) => void
 	}
 
 	let {
@@ -37,8 +42,12 @@
 		curves,
 		selectedWell,
 		onWellChange,
-		onAxisChange
+		onAxisChange,
+		onCurvesChange
 	}: Props = $props()
+
+	/** Check if this is a D3 well log (supports multi-curve) */
+	let isD3WellLog = $derived(config.type === 'd3-welllog')
 
 	/** Convert wells to SelectList options */
 	let wellOptions = $derived(
@@ -58,37 +67,82 @@
 		}))
 	)
 
-	/** Get the currently selected curve ID based on chart type */
-	let selectedCurveId = $derived.by(() => {
+	/** Get the currently selected curve ID(s) based on chart type */
+	let selectedCurveIds = $derived.by((): string | string[] => {
 		if (config.type === 'histogram') {
 			return (config as HistogramConfig).dataCurve?.curveId ?? ''
 		} else if (config.type === 'welllog') {
 			return (config as WellLogConfig).curve?.curveId ?? ''
 		} else if (config.type === 'd3-welllog') {
-			return (config as D3WellLogConfig).curve?.curveId ?? ''
+			const d3Config = config as D3WellLogConfig
+			// If we have the new curves array, use it
+			if (d3Config.curves && d3Config.curves.length > 0) {
+				return d3Config.curves.map(c => c.curveId)
+			}
+			// Legacy: fall back to single curve
+			return d3Config.curve?.curveId ?? ''
 		}
 		return ''
 	})
 
 	/** Handle curve selection */
 	function handleCurveSelect(curveId: string | string[]): void {
-		const id = Array.isArray(curveId) ? curveId[0] : curveId
-		if (!id) return
-
-		const curve = curves.find((c) => c.id === id)
-		if (!curve) return
-
-		const binding: AxisBinding = {
-			curveId: curve.id,
-			mnemonic: curve.mnemonic,
-			autoScale: true
-		}
-
-		if (config.type === 'histogram') {
-			onAxisChange('dataCurve', binding)
+		if (isD3WellLog && Array.isArray(curveId)) {
+			// D3 well log multi-curve selection
+			handleD3CurvesSelect(curveId)
 		} else {
-			onAxisChange('curve', binding)
+			// Single curve selection (histogram, welllog, or legacy d3-welllog)
+			const id = Array.isArray(curveId) ? curveId[0] : curveId
+			if (!id) return
+
+			const curve = curves.find((c) => c.id === id)
+			if (!curve) return
+
+			const binding: AxisBinding = {
+				curveId: curve.id,
+				mnemonic: curve.mnemonic,
+				autoScale: true
+			}
+
+			if (config.type === 'histogram') {
+				onAxisChange('dataCurve', binding)
+			} else {
+				onAxisChange('curve', binding)
+			}
 		}
+	}
+
+	/** Handle D3 well log multi-curve selection */
+	function handleD3CurvesSelect(curveIds: string[]): void {
+		if (!onCurvesChange) {
+			// Fallback to single curve if callback not provided
+			if (curveIds.length > 0) {
+				const curve = curves.find(c => c.id === curveIds[0])
+				if (curve) {
+					onAxisChange('curve', {
+						curveId: curve.id,
+						mnemonic: curve.mnemonic,
+						autoScale: true
+					})
+				}
+			}
+			return
+		}
+
+		// Build array of D3CurveBinding from selected curve IDs
+		const d3Curves: D3CurveBinding[] = curveIds
+			.map(id => {
+				const curveInfo = curves.find(c => c.id === id)
+				if (!curveInfo) return null
+				return createDefaultD3CurveBinding(
+					curveInfo.id,
+					curveInfo.mnemonic,
+					curveInfo.unit ?? undefined
+				)
+			})
+			.filter((c): c is D3CurveBinding => c !== null)
+
+		onCurvesChange(d3Curves)
 	}
 </script>
 
@@ -108,14 +162,22 @@
 	<!-- Curve Selection -->
 	{#if selectedWell}
 		<div class="config-section">
-			<h4 class="section-title">Curve</h4>
+			<h4 class="section-title">
+				{isD3WellLog ? 'Curves (select up to 4)' : 'Curve'}
+			</h4>
 			<SelectList
 				options={curveOptions}
-				selected={selectedCurveId}
+				selected={selectedCurveIds}
+				multiSelect={isD3WellLog}
 				onChange={handleCurveSelect}
 				maxHeight="200px"
 				emptyText="No curves in this well"
 			/>
+			{#if isD3WellLog && Array.isArray(selectedCurveIds) && selectedCurveIds.length > 0}
+				<p class="selection-hint">
+					{selectedCurveIds.length} curve{selectedCurveIds.length !== 1 ? 's' : ''} selected
+				</p>
+			{/if}
 		</div>
 	{:else}
 		<div class="hint-box">
@@ -165,5 +227,11 @@
 
 	.hint-box svg {
 		flex-shrink: 0;
+	}
+
+	.selection-hint {
+		margin: 8px 0 0 0;
+		font-size: 12px;
+		color: hsl(var(--muted-foreground));
 	}
 </style>

@@ -9,6 +9,7 @@
 	 */
 	import type { CurveInfo, WellInfo, SegmentedCurveData } from '$lib/types'
 	import type { ChartConfiguration } from '$lib/panes/chart-configs'
+	import type { MultiCurveSegmentedData } from '$lib/panes/layout-model'
 	import { selectionContext } from '$lib/panes/selection-context'
 	import ParameterForm from '$lib/components/ParameterForm.svelte'
 	import ChartSettingsPanel from './ChartSettingsPanel.svelte'
@@ -25,8 +26,10 @@
 		onWellChange?: (wellId: string) => void
 		/** Callback when chart configuration changes */
 		onConfigChange?: (config: ChartConfiguration) => void
-		/** Callback when segmented data changes */
+		/** Callback when segmented data changes (single curve) */
 		onSegmentedDataChange?: (data: SegmentedCurveData | null) => void
+		/** Callback when multi-curve data changes (D3 multi-curve) */
+		onMultiCurveDataChange?: (data: MultiCurveSegmentedData | null) => void
 	}
 
 	let {
@@ -35,7 +38,8 @@
 		well,
 		onWellChange,
 		onConfigChange,
-		onSegmentedDataChange
+		onSegmentedDataChange,
+		onMultiCurveDataChange
 	}: Props = $props()
 
 	/** Selection stores */
@@ -122,6 +126,7 @@
 			onWellChange={(wellId) => onWellChange?.(wellId)}
 			onConfigChange={(config) => onConfigChange?.(config)}
 			onSegmentedDataChange={(data) => onSegmentedDataChange?.(data)}
+			onMultiCurveDataChange={(data) => onMultiCurveDataChange?.(data)}
 		/>
 	{:else if $selectionType === 'pane' && $selectedPane}
 		<!-- Non-chart Pane Selected - Show basic info -->

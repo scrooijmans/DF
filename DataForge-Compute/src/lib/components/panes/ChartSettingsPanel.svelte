@@ -13,13 +13,14 @@
 	 */
 	import { onDestroy } from 'svelte'
 	import type { CurveInfo, WellInfo, SegmentedCurveData, CurveInfoWithWell } from '$lib/types'
-	import type { PaneNode } from '$lib/panes/layout-model'
+	import type { PaneNode, MultiCurveSegmentedData } from '$lib/panes/layout-model'
 	import { PaneType } from '$lib/panes/layout-model'
 	import type {
 		ChartConfiguration,
 		HistogramConfig,
 		WellLogConfig,
 		D3WellLogConfig,
+		D3CurveBinding,
 		AxisBinding
 	} from '$lib/panes/chart-configs'
 	import {
@@ -34,7 +35,7 @@
 		SingleWellDataTab,
 		D3WellLogStyleSection,
 		DepthSettingsSection,
-		XAxisRangeSection
+		D3CurveSettingsSection
 	} from '$lib/components/charts/settings'
 
 	interface Props {
@@ -52,8 +53,10 @@
 		onWellChange?: (wellId: string) => void
 		/** Callback when configuration changes */
 		onConfigChange: (config: ChartConfiguration) => void
-		/** Callback when segmented chart data changes */
+		/** Callback when segmented chart data changes (single curve) */
 		onSegmentedDataChange?: (data: SegmentedCurveData | null) => void
+		/** Callback when multi-curve segmented data changes (D3 multi-curve) */
+		onMultiCurveDataChange?: (data: MultiCurveSegmentedData | null) => void
 	}
 
 	let {
@@ -64,7 +67,8 @@
 		well,
 		onWellChange,
 		onConfigChange,
-		onSegmentedDataChange
+		onSegmentedDataChange,
+		onMultiCurveDataChange
 	}: Props = $props()
 
 	/** Loading state */
@@ -246,16 +250,94 @@
 	}
 
 	/**
-	 * Update X axis range
+	 * Update individual curve settings (xMin, xMax, color, lineWidth, fill)
 	 */
-	function handleXMinChange(value: number): void {
+	function handleCurveSettingChange(curveId: string, updates: Partial<D3CurveBinding>): void {
 		if (!d3Config) return
-		onConfigChange({ ...d3Config, xMin: value } as ChartConfiguration)
+		const updatedCurves = d3Config.curves.map(c =>
+			c.curveId === curveId ? { ...c, ...updates } : c
+		)
+		onConfigChange({ ...d3Config, curves: updatedCurves } as ChartConfiguration)
 	}
 
-	function handleXMaxChange(value: number): void {
-		if (!d3Config) return
-		onConfigChange({ ...d3Config, xMax: value } as ChartConfiguration)
+	/**
+	 * Handle D3 multi-curve selection change from SingleWellDataTab
+	 */
+	async function handleD3CurvesChange(curveBindings: D3CurveBinding[]): Promise<void> {
+		if (!chartConfig || chartConfig.type !== 'd3-welllog') return
+
+		console.log('[ChartSettingsPanel] handleD3CurvesChange:', curveBindings)
+
+		// Update config with new curves array
+		const newConfig: D3WellLogConfig = {
+			...(chartConfig as D3WellLogConfig),
+			curves: curveBindings
+		}
+		onConfigChange(newConfig)
+
+		// Load data for all selected curves
+		await loadMultiCurveData(curveBindings)
+	}
+
+	/**
+	 * Load data for multiple curves (D3 multi-curve mode)
+	 */
+	async function loadMultiCurveData(curveBindings: D3CurveBinding[]): Promise<void> {
+		if (curveBindings.length === 0) {
+			onMultiCurveDataChange?.(null)
+			return
+		}
+
+		isLoadingData = true
+		try {
+			// Load data for each curve in parallel
+			const loadPromises = curveBindings.map(async (binding) => {
+				const segmentedData = await loadSegmentedCurveData(binding.curveId)
+				return {
+					curveId: binding.curveId,
+					mnemonic: binding.mnemonic,
+					unit: binding.unit ?? '',
+					segments: segmentedData?.segments ?? [],
+					depth_range: segmentedData?.depth_range ?? [0, 0] as [number, number]
+				}
+			})
+
+			const curveResults = await Promise.all(loadPromises)
+
+			// Filter out curves with no data
+			const validCurves = curveResults.filter(c => c.segments.length > 0)
+
+			if (validCurves.length === 0) {
+				console.log('[ChartSettingsPanel] No valid curve data loaded')
+				onMultiCurveDataChange?.(null)
+				return
+			}
+
+			// Calculate combined depth range
+			let minDepth = Infinity
+			let maxDepth = -Infinity
+			for (const curve of validCurves) {
+				if (curve.depth_range[0] < minDepth) minDepth = curve.depth_range[0]
+				if (curve.depth_range[1] > maxDepth) maxDepth = curve.depth_range[1]
+			}
+
+			const multiCurveData: MultiCurveSegmentedData = {
+				curves: validCurves,
+				combined_depth_range: [minDepth, maxDepth]
+			}
+
+			console.log('[ChartSettingsPanel] Multi-curve data loaded:', {
+				curveCount: validCurves.length,
+				combinedDepthRange: [minDepth, maxDepth]
+			})
+
+			onMultiCurveDataChange?.(multiCurveData)
+		} catch (error) {
+			console.error('[ChartSettingsPanel] Failed to load multi-curve data:', error)
+			onMultiCurveDataChange?.(null)
+		} finally {
+			isLoadingData = false
+		}
 	}
 </script>
 
@@ -310,6 +392,7 @@
 					selectedWell={well}
 					onWellChange={(wellId) => onWellChange?.(wellId)}
 					onAxisChange={handleAxisChange}
+					onCurvesChange={isD3WellLog ? handleD3CurvesChange : undefined}
 				/>
 			{:else}
 				<div class="coming-soon">
@@ -333,12 +416,9 @@
 					onDepthRangeChange={handleDepthRangeChange}
 				/>
 				<div class="section-spacer"></div>
-				<XAxisRangeSection
-					xMin={d3Config.xMin ?? 0}
-					xMax={d3Config.xMax ?? 150}
-					onXMinChange={handleXMinChange}
-					onXMaxChange={handleXMaxChange}
-					title="Curve Range"
+				<D3CurveSettingsSection
+					curves={d3Config.curves}
+					onCurveChange={handleCurveSettingChange}
 				/>
 			</div>
 		{/if}

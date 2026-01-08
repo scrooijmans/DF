@@ -6,7 +6,8 @@
 	 * that matches the reference screenshot (Gamma Ray with Sand/Shale).
 	 */
 	import D3WellLogTrack from '$lib/components/charts/D3WellLogTrack.svelte'
-	import type { WellLogDataPoint, TrackConfig, DepthRange } from '$lib/charts/d3-utils'
+	import type { DepthRange } from '$lib/charts/d3-utils'
+	import type { D3CurveBinding } from '$lib/panes/chart-configs'
 
 	// =========================================================================
 	// Generate Synthetic Well Log Data
@@ -18,8 +19,9 @@
 	 * - Low values (~20-40) = Sand
 	 * - Smooth transitions with some noise
 	 */
-	function generateSyntheticGR(): WellLogDataPoint[] {
-		const data: WellLogDataPoint[] = []
+	function generateSyntheticGRSegments(): Array<{ depths: number[]; values: number[] }> {
+		const depths: number[] = []
+		const values: number[] = []
 		const depthStart = 2000
 		const depthEnd = 2200
 		const depthStep = 0.5
@@ -59,28 +61,40 @@
 
 			const value = Math.max(0, Math.min(150, baseValue + noise + sineWiggle))
 
-			data.push({ depth, value })
+			depths.push(depth)
+			values.push(value)
 		}
 
-		return data
+		// Return as single segment (continuous data)
+		return [{ depths, values }]
 	}
 
 	// =========================================================================
 	// Chart Configuration
 	// =========================================================================
 
-	const grData = generateSyntheticGR()
+	const grSegments = generateSyntheticGRSegments()
 
-	const grConfig: TrackConfig = {
-		title: 'Gamma Ray',
+	const grConfig: D3CurveBinding = {
+		curveId: 'demo-gr',
+		mnemonic: 'GR',
 		unit: 'gAPI',
 		xMin: 0,
 		xMax: 150,
-		curveColor: '#22c55e', // Green (matches screenshot)
+		color: '#22c55e', // Green (matches screenshot)
 		fillColor: '#ffff99', // Light yellow for sand
 		fillDirection: 'left',
+		fillOpacity: 0.5,
 		lineWidth: 1.5
 	}
+
+	// Combine into curvesData format expected by D3WellLogTrack
+	const curvesData = [
+		{
+			config: grConfig,
+			segments: grSegments
+		}
+	]
 
 	const depthRange: DepthRange = {
 		min: 2000,
@@ -104,14 +118,10 @@
 	<main class="demo-content">
 		<div class="chart-container">
 			<D3WellLogTrack
-				data={grData}
+				{curvesData}
 				{depthRange}
-				config={grConfig}
 				width={200}
 				height={600}
-				showLithologyLabels={true}
-				grCutoff={75}
-				minZoneThickness={10}
 			/>
 		</div>
 
@@ -131,7 +141,7 @@
 				<dt>Depth Range</dt>
 				<dd>{depthRange.min} - {depthRange.max} m</dd>
 				<dt>Data Points</dt>
-				<dd>{grData.length}</dd>
+				<dd>{grSegments[0].depths.length}</dd>
 				<dt>GR Range</dt>
 				<dd>{grConfig.xMin} - {grConfig.xMax} {grConfig.unit}</dd>
 			</dl>
